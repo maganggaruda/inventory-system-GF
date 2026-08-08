@@ -1,33 +1,41 @@
 <?php
 include "../koneksi.php";
+date_default_timezone_set('Asia/Jakarta'); // Memastikan waktu WIB
 
-$error = "";
-
-if (isset($_POST['simpan'])) {
-    $id_komponen = !empty($_POST['id_komponen']) ? mysqli_real_escape_string($conn, $_POST['id_komponen']) : 'NULL';
-    $tanggal     = mysqli_real_escape_string($conn, $_POST['tanggal']);
-    $jenis       = mysqli_real_escape_string($conn, trim($_POST['jenis']));
-    $teknisi     = mysqli_real_escape_string($conn, trim($_POST['teknisi']));
-    $tindakan    = mysqli_real_escape_string($conn, trim($_POST['tindakan']));
-    $sparepart   = mysqli_real_escape_string($conn, trim($_POST['sparepart']));
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $id_komponen = mysqli_real_escape_string($conn, $_POST['id_komponen']);
     $status      = mysqli_real_escape_string($conn, $_POST['status']);
-    $catatan     = mysqli_real_escape_string($conn, trim($_POST['catatan']));
+    $teknisi     = mysqli_real_escape_string($conn, $_POST['teknisi']);
+    $tindakan    = mysqli_real_escape_string($conn, $_POST['tindakan']);
+    $jenis       = mysqli_real_escape_string($conn, $_POST['jenis'] ?? '');
+    $sparepart   = mysqli_real_escape_string($conn, $_POST['sparepart'] ?? '');
+    $catatan     = mysqli_real_escape_string($conn, $_POST['catatan'] ?? '');
 
-    if (empty($tanggal) || empty($tindakan)) {
-        $error = "Tanggal dan Tindakan wajib diisi!";
-    } else {
-        $query = "INSERT INTO riwayat_maintenance (
-                    id_komponen, tanggal, jenis, teknisi, tindakan, sparepart, status, catatan
-                  ) VALUES (
-                    $id_komponen, '$tanggal', '$jenis', '$teknisi', '$tindakan', '$sparepart', '$status', '$catatan'
-                  )";
+    // 1. Ambil tanggal dari input form (contoh: 2026-08-08)
+    $input_tanggal = $_POST['tanggal']; 
 
-        if (mysqli_query($conn, $query)) {
-            header("Location: index.php");
-            exit;
-        } else {
-            $error = "Gagal menyimpan data: " . mysqli_error($conn);
+    // 2. Ambil jam, menit, detik saat ini
+    $jam_sekarang = date('H:i:s');
+
+    // 3. Gabungkan tanggal & jam (Contoh: 2026-08-08 09:17:06)
+    $tanggal_lengkap = $input_tanggal . ' ' . $jam_sekarang;
+
+    // 4. Insert ke database
+    $query = mysqli_query($conn, "
+        INSERT INTO riwayat_maintenance (id_komponen, tanggal, status, teknisi, tindakan, jenis, sparepart, catatan) 
+        VALUES ('$id_komponen', '$tanggal_lengkap', '$status', '$teknisi', '$tindakan', '$jenis', '$sparepart', '$catatan')
+    ");
+
+    if ($query) {
+        // Jika status yang diinput adalah 'Selesai', otomatis update kondisi komponen menjadi 'Baik'
+        if ($status == 'Selesai' && !empty($id_komponen)) {
+            mysqli_query($conn, "UPDATE komponen SET kondisi = 'Baik' WHERE id = '$id_komponen'");
         }
+
+        echo "<script>alert('Data maintenance berhasil ditambahkan!'); window.location='index.php';</script>";
+        exit;
+    } else {
+        $error = "Gagal menyimpan data: " . mysqli_error($conn);
     }
 }
 
@@ -82,10 +90,10 @@ include "../template/header.php";
         </h6>
         
         <div class="row g-3">
-          <!-- Dropdown Komponen yang Bisa Dicari (Searchable) -->
+          <!-- Dropdown Komponen -->
           <div class="col-md-6">
-            <label class="form-label fw-semibold text-dark">Komponen Terkait</label>
-            <select name="id_komponen" id="select-komponen" class="form-select border-light-subtle rounded-3">
+            <label class="form-label fw-semibold text-dark">Komponen Terkait <span class="text-danger">*</span></label>
+            <select name="id_komponen" id="select-komponen" class="form-select border-light-subtle rounded-3" required>
               <option value="">-- Cari / Pilih Komponen --</option>
               <?php while ($k = mysqli_fetch_assoc($q_komponen)) : ?>
                 <option value="<?= $k['id'] ?>">
@@ -169,12 +177,10 @@ include "../template/header.php";
 
 <!-- Import Script jQuery & Select2 -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
   $(document).ready(function() {
-    // Inisialisasi Select2 dengan Theme Bootstrap 5
     $('#select-komponen').select2({
       theme: 'bootstrap-5',
       placeholder: '-- Ketik untuk mencari Komponen / Kode Mesin --',
