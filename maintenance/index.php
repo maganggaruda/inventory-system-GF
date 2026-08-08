@@ -7,7 +7,6 @@ $filter_sub_mesin = isset($_GET['sub_mesin']) ? $_GET['sub_mesin'] : '';
 $filter_status    = isset($_GET['status']) ? $_GET['status'] : '';
 $keyword          = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 
-// Build Query Condition
 $where_clauses = [];
 
 if (!empty($filter_mesin)) {
@@ -29,7 +28,6 @@ if (count($where_clauses) > 0) {
     $where_sql = "WHERE " . implode(" AND ", $where_clauses);
 }
 
-// Fetch Data Maintenance
 $query_maint = mysqli_query($conn, "
     SELECT 
         rm.*,
@@ -52,7 +50,6 @@ if ($query_maint && mysqli_num_rows($query_maint) > 0) {
     }
 }
 
-// Fetch Mesin & Sub Mesin untuk Filter
 $list_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_mesin ASC");
 $list_sub_mesin = mysqli_query($conn, "SELECT id, nama_sub_mesin FROM sub_mesin ORDER BY nama_sub_mesin ASC");
 
@@ -61,7 +58,6 @@ include "../template/header.php";
 
 <div class="container-fluid mb-2 px-3 py-2">
 
-    <!-- HEADER BAR (KARTU PUTIH) -->
     <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>
@@ -76,12 +72,10 @@ include "../template/header.php";
         </div>
     </div>
 
-    <!-- CARD FILTER -->
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3">
             <form method="GET" action="" class="row g-2 align-items-end">
                 
-                <!-- Filter Mesin -->
                 <div class="col-md-3">
                     <label class="form-label small fw-bold text-muted mb-1">Mesin</label>
                     <select name="mesin" class="form-select form-select-sm rounded-3">
@@ -96,7 +90,6 @@ include "../template/header.php";
                     </select>
                 </div>
 
-                <!-- Filter Sub Mesin -->
                 <div class="col-md-3">
                     <label class="form-label small fw-bold text-muted mb-1">Sub Mesin</label>
                     <select name="sub_mesin" class="form-select form-select-sm rounded-3">
@@ -111,7 +104,6 @@ include "../template/header.php";
                     </select>
                 </div>
 
-                <!-- Filter Status -->
                 <div class="col-md-2">
                     <label class="form-label small fw-bold text-muted mb-1">Status</label>
                     <select name="status" class="form-select form-select-sm rounded-3">
@@ -122,18 +114,15 @@ include "../template/header.php";
                     </select>
                 </div>
 
-                <!-- Input Kata Kunci & Button -->
                 <div class="col-md-4">
                     <label class="form-label small fw-bold text-muted mb-1">Kata Kunci</label>
                     <div class="d-flex gap-2">
                         <input type="text" name="keyword" class="form-control form-control-sm rounded-3" placeholder="Nama Bagian / Kode / Teknisi..." value="<?= htmlspecialchars($keyword) ?>">
-                        
-                        <!-- Tombol Filter Centered -->
+
                         <button type="submit" class="btn btn-primary btn-sm rounded-3 d-inline-flex align-items-center justify-content-center p-0" style="width: 45px; height: 31px;" title="Filter">
                             <i class="bi bi-funnel fs-6"></i>
                         </button>
                         
-                        <!-- Tombol Reset Centered -->
                         <a href="index.php" class="btn btn-outline-secondary btn-sm rounded-3 d-inline-flex align-items-center justify-content-center p-0" style="width: 40px; height: 31px;" title="Reset Filter">
                             <i class="bi bi-arrow-counterclockwise fs-6"></i>
                         </a>
@@ -144,7 +133,6 @@ include "../template/header.php";
         </div>
     </div>
 
-    <!-- TABLE CARD -->
     <div class="card border-0 shadow-sm rounded-4">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
             <h5 class="fw-bold text-primary mb-0 fs-6">
