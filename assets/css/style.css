@@ -1,0 +1,381 @@
+/* ==========================================================================
+   GARUDAFOOD INVENTORY & MAINTENANCE SYSTEM
+   Main Stylesheet
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. VARIABLES & CONFIGURATION
+   -------------------------------------------------------------------------- */
+:root {
+    /* Brand Colors */
+    --primary: #005BAC;
+    --primary-dark: #003E7A;
+    --warning: #FDB913;
+    --success: #10B981;
+    --danger: #EF4444;
+
+    /* Background & Cards */
+    --bg: #F4F7FB;
+    --card: #FFFFFF;
+
+    /* Typography & Borders */
+    --text: #1E293B;
+    --muted: #64748B;
+    --border: #E2E8F0;
+
+    /* Structural */
+    --sidebar-width: 260px;
+}
+
+/* --------------------------------------------------------------------------
+   2. RESET & BASE STYLES
+   -------------------------------------------------------------------------- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   3. APP LAYOUT & MAIN CONTAINER
+   -------------------------------------------------------------------------- */
+.app-wrapper {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+}
+
+.main-content {
+    margin-left: var(--sidebar-width);
+    flex-grow: 1;
+    width: calc(100% - var(--sidebar-width));
+    padding: 20px 25px !important; /* Compact padding untuk efisiensi ruang */
+    min-height: 100vh;
+}
+
+/* --------------------------------------------------------------------------
+   4. SIDEBAR NAVIGATION
+   -------------------------------------------------------------------------- */
+.sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    color: #FFFFFF;
+    display: flex;
+    flex-direction: column;
+    z-index: 999;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Sidebar Header / Logo Area */
+.sidebar-header {
+    padding: 24px 20px;
+    text-align: center;
+    background: #FFFFFF;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-header img {
+    width: 80px;
+    height: auto;
+    object-fit: contain;
+}
+
+.sidebar-header h4 {
+    color: var(--primary);
+    margin-top: 10px;
+    margin-bottom: 2px;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.sidebar-header span {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Sidebar Menu Item */
+.sidebar-menu {
+    margin-top: 20px;
+    padding: 0 10px;
+}
+
+.sidebar-menu a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    transition: all 0.25s ease;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.sidebar-menu a:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #FFFFFF;
+}
+
+.sidebar-menu a.active {
+    background: #FFFFFF;
+    color: var(--primary);
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-menu i {
+    font-size: 18px;
+}
+
+/* --------------------------------------------------------------------------
+   5. PAGE HEADER
+   -------------------------------------------------------------------------- */
+.dashboard-header {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+}
+
+.dashboard-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.dashboard-subtitle {
+    color: var(--muted);
+    margin-bottom: 0;
+    font-size: 14px;
+}
+
+.dashboard-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #EEF5FF;
+    border-radius: 10px;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   6. STATISTICAL CARDS
+   -------------------------------------------------------------------------- */
+.stat-box {
+    border-radius: 16px;
+    padding: 22px 24px;
+    color: #FFFFFF;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    min-height: 130px;
+}
+
+.stat-box:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
+}
+
+.stat-box::before {
+    content: "";
+    position: absolute;
+    width: 140px;
+    height: 140px;
+    right: -40px;
+    top: -40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.9;
+    font-weight: 600;
+}
+
+.stat-number {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 6px 0 2px 0;
+}
+
+.stat-desc {
+    font-size: 12px;
+    opacity: 0.85;
+}
+
+.stat-icon {
+    font-size: 42px;
+    opacity: 0.3;
+    z-index: 1;
+}
+
+/* Stat Card Color Variants */
+.blue { background: linear-gradient(135deg, #005BAC 0%, #1D4ED8 100%); }
+.cyan { background: linear-gradient(135deg, #0891B2 0%, #06B6D4 100%); }
+.orange { background: linear-gradient(135deg, #EA580C 0%, #F59E0B 100%); }
+.green { background: linear-gradient(135deg, #059669 0%, #10B981 100%); }
+
+/* --------------------------------------------------------------------------
+   7. CONTENT CARDS & CONTAINERS
+   -------------------------------------------------------------------------- */
+.content-card {
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+    border: 1px solid var(--border);
+    transition: all 0.25s ease;
+}
+
+.card-header-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.card-title-custom {
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 16px;
+    margin: 0;
+}
+
+.card-body-custom {
+    padding: 20px;
+}
+
+.icon-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #EEF5FF;
+    color: var(--primary);
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   8. TABLES & LISTS
+   -------------------------------------------------------------------------- */
+.table th {
+    background: #F8FAFC;
+    color: #475569;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.table td {
+    padding: 14px 16px;
+    font-size: 14px;
+}
+
+.table tbody tr:hover {
+    background-color: #F8FAFC;
+}
+
+.badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.list-group-item {
+    padding: 14px 20px;
+    border-color: var(--border);
+}
+
+/* --------------------------------------------------------------------------
+   9. FORMS & INPUTS
+   -------------------------------------------------------------------------- */
+.form-control, 
+.form-select {
+    border-radius: 10px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus, 
+.form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 91, 172, 0.15);
+}
+
+textarea.form-control {
+    min-height: 80px;
+}
+
+.input-group-text {
+    border-radius: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   10. BUTTONS & UTILITIES
+   -------------------------------------------------------------------------- */
+.btn-primary {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: #FFFFFF !important;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-dark) !important;
+    border-color: var(--primary-dark) !important;
+}
+
+.btn-group-sm > .btn {
+    padding: 5px 10px;
+    font-size: 13px;
+    border-radius: 8px;
+}
+
+/* Color Accent Helpers */
+.bg-primary-subtle {
+    background-color: #EEF5FF !important;
+}
+
+.border-primary-subtle {
+    border-color: #BFDBFE !important;
+}
