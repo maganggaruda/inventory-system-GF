@@ -1,19 +1,12 @@
 <?php
 include "../koneksi.php";
 
-/* ===========================
-   PROSES UPDATE STATUS & KONDISI
-=========================== */
-
-// 1. Update Status Maintenance (Otomatis update kondisi komponen)
 if (isset($_POST['update_status_maintenance'])) {
     $id_maint = intval($_POST['id_maintenance']);
     $status_baru = mysqli_real_escape_string($conn, $_POST['status']);
     
-    // Update status riwayat maintenance
     mysqli_query($conn, "UPDATE riwayat_maintenance SET status = '$status_baru' WHERE id = $id_maint");
     
-    // Jika diubah jadi 'Selesai', otomatis ubah kondisi komponen terkait jadi 'Baik'
     if ($status_baru == 'Selesai') {
         $get_maint = mysqli_query($conn, "SELECT id_komponen FROM riwayat_maintenance WHERE id = $id_maint");
         if ($data_maint = mysqli_fetch_assoc($get_maint)) {
@@ -28,7 +21,6 @@ if (isset($_POST['update_status_maintenance'])) {
     exit;
 }
 
-// 2. Update Kondisi Komponen
 if (isset($_POST['update_kondisi_komponen'])) {
     $id_komp = intval($_POST['id_komponen']);
     $kondisi_baru = mysqli_real_escape_string($conn, $_POST['kondisi']);
@@ -39,10 +31,6 @@ if (isset($_POST['update_kondisi_komponen'])) {
 }
 
 include "../template/header.php";
-
-/* ===========================
-   STATISTIK
-=========================== */
 
 $d_total_mesin = mysqli_fetch_assoc(
     mysqli_query($conn,"SELECT COUNT(*) total FROM mesin")
@@ -66,11 +54,6 @@ $d_maint_bulan_ini = mysqli_fetch_assoc(
     ")
 )['total'];
 
-
-/* ===========================
-   MAINTENANCE (AMBIL DATA)
-=========================== */
-
 $q_maintenance = mysqli_query($conn,"
 SELECT
 rm.*,
@@ -89,18 +72,12 @@ ORDER BY rm.tanggal DESC
 LIMIT 5
 ");
 
-// Simpan data maintenance ke array untuk penanganan Modal terpisah
 $data_maintenance_list = [];
 if($q_maintenance && mysqli_num_rows($q_maintenance) > 0) {
     while($row = mysqli_fetch_assoc($q_maintenance)) {
         $data_maintenance_list[] = $row;
     }
 }
-
-
-/* ===========================
-   KOMPONEN (AMBIL DATA)
-=========================== */
 
 $q_komponen = mysqli_query($conn,"
 SELECT
@@ -119,7 +96,6 @@ ORDER BY k.id DESC
 LIMIT 5
 ");
 
-// Simpan data komponen ke array untuk penanganan Modal terpisah
 $data_komponen_list = [];
 if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
     while($row = mysqli_fetch_assoc($q_komponen)) {
@@ -129,8 +105,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
 ?>
 
 <div class="container-fluid">
-
-    <!-- HEADER -->
     <div class="dashboard-header mb-4">
         <div class="row align-items-center">
             <div class="col-lg-8">
@@ -153,7 +127,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
         </div>
     </div>
 
-    <!-- CARD STATISTIK -->
     <div class="row g-4 mb-4">
         <div class="col-xl-3 col-md-6">
             <div class="stat-box blue">
@@ -205,7 +178,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
         </div>
     </div>
 
-    <!-- QUICK ACTION -->
     <div class="content-card mb-4">
         <div class="card-body-custom">
             <div class="d-flex justify-content-between align-items-center flex-wrap">
@@ -231,7 +203,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
     </div>
 
     <div class="row g-4">
-        <!-- ================= MAINTENANCE TERBARU ================= -->
         <div class="col-lg-8">
             <div class="content-card h-100">
                 <div class="card-header-custom">
@@ -310,7 +281,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
             </div>
         </div>
 
-        <!-- ================= KOMPONEN BERMASALAH ================= -->
         <div class="col-lg-4">
             <div class="content-card h-100">
                 <div class="card-header-custom">
@@ -355,12 +325,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
 
 </div> <!-- container-fluid -->
 
-
-<!-- =========================================================
-     MODAL CONTAINERS (Ditaruh diluar tabel agar tidak berantakan)
-========================================================= -->
-
-<!-- Modal Update Status Maintenance -->
 <?php foreach($data_maintenance_list as $m): ?>
 <div class="modal fade" id="modalStatusMaint<?=$m['id']?>" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -387,8 +351,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
     </div>
 </div>
 <?php endforeach; ?>
-
-<!-- Modal Update Kondisi Komponen -->
 <?php foreach($data_komponen_list as $k): ?>
 <div class="modal fade" id="modalKondisiKomp<?=$k['id']?>" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -432,10 +394,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
             clockElement.textContent = timeString;
         }
     }
-
-    // Jalankan fungsi pertama kali
     updateClock();
-    
-    // Perbarui jam setiap 1 detik (1000 ms)
     setInterval(updateClock, 1000);
 </script>
