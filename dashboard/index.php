@@ -142,11 +142,14 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
                 </p>
             </div>
             <div class="col-lg-4 text-lg-end">
-                <span class="dashboard-date">
-                    <i class="bi bi-calendar3"></i>
-                    <?=date('d F Y')?>
-                </span>
-            </div>
+    <span class="dashboard-date d-inline-flex align-items-center gap-2">
+        <i class="bi bi-calendar3"></i>
+        <span><?=date('d F Y')?></span>
+        <span class="border-start ps-2 ms-1 text-muted">
+            <i class="bi bi-clock me-1"></i><span id="jam-realtime">--:--:--</span> WIB
+        </span>
+    </span>
+</div>
         </div>
     </div>
 
@@ -415,3 +418,24 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
 <?php endforeach; ?>
 
 <?php include "../template/footer.php"; ?>
+<script>
+    function updateClock() {
+        const now = new Date();
+        const hours   = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        
+        const timeString = `${hours}:${minutes}:${seconds}`;
+        
+        const clockElement = document.getElementById('jam-realtime');
+        if (clockElement) {
+            clockElement.textContent = timeString;
+        }
+    }
+
+    // Jalankan fungsi pertama kali
+    updateClock();
+    
+    // Perbarui jam setiap 1 detik (1000 ms)
+    setInterval(updateClock, 1000);
+</script>
