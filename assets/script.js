@@ -4,8 +4,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const alerts = document.querySelectorAll(".alert");
     alerts.forEach(function (alert) {
         setTimeout(function () {
-            let bsAlert = new bootstrap.Alert(alert);
-            bsAlert.close();
+            // Cek apakah instance bootstrap tersedia agar tidak error
+            if (typeof bootstrap !== 'undefined' && bootstrap.Alert) {
+                let bsAlert = bootstrap.Alert.getInstance(alert) || new bootstrap.Alert(alert);
+                bsAlert.close();
+            } else {
+                alert.style.display = 'none'; // Fallback jika Bootstrap JS tidak terload
+            }
         }, 3000);
     });
 
@@ -27,7 +32,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
-    // 4. Format Input Angka / Biaya Secara Real-time (Khusus Form Input Biaya/Rupiah)
+    // 4. Format Input Angka / Biaya Secara Real-time
     const rupiahInputs = document.querySelectorAll(".input-rupiah");
     rupiahInputs.forEach(function (input) {
         input.addEventListener("input", function (e) {
@@ -43,7 +48,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             rupiah = split[1] != undefined ? rupiah + "," + split[1] : rupiah;
-                this.value = rupiah;
+            this.value = rupiah;
         });
     });
 
