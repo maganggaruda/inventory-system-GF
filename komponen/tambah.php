@@ -4,7 +4,8 @@ include "../koneksi.php";
 $error = "";
 
 if (isset($_POST['simpan'])) {
-    $kode_mesin       = mysqli_real_escape_string($conn, trim($_POST['kode_mesin']));
+    // $_POST['kode_mesin'] & variabel $kode_mesin diganti menjadi $serial_number
+    $serial_number    = mysqli_real_escape_string($conn, trim($_POST['serial_number']));
     $id_mesin         = !empty($_POST['id_mesin']) ? mysqli_real_escape_string($conn, $_POST['id_mesin']) : 'NULL';
     $id_sub_mesin     = !empty($_POST['id_sub_mesin']) ? mysqli_real_escape_string($conn, $_POST['id_sub_mesin']) : 'NULL';
     
@@ -39,13 +40,14 @@ if (isset($_POST['simpan'])) {
     if (empty($nama_bagian)) {
         $error = "Nama Bagian wajib diisi!";
     } else {
+        // Kolom kode_mesin pada INSERT INTO diganti menjadi serial_number
         $query = "INSERT INTO komponen (
-                    kode_mesin, id_mesin, id_sub_mesin, mesin, sub_mesin, nama_bagian, kategori, 
+                    serial_number, id_mesin, id_sub_mesin, mesin, sub_mesin, nama_bagian, kategori, 
                     brand, tipe, part_number, daya, io_address, input_voltage, 
                     frekuensi_input, arus_input, output, frekuensi_output, ip_rating, 
                     lokasi, kondisi, keterangan
                   ) VALUES (
-                    '$kode_mesin', $id_mesin, $id_sub_mesin, '$mesin_str', '$sub_mesin_str', '$nama_bagian', '$kategori', 
+                    '$serial_number', $id_mesin, $id_sub_mesin, '$mesin_str', '$sub_mesin_str', '$nama_bagian', '$kategori', 
                     '$brand', '$tipe', '$part_number', '$daya', '$io_address', '$input_voltage', 
                     '$frekuensi_input', '$arus_input', '$output', '$frekuensi_output', '$ip_rating', 
                     '$lokasi', '$kondisi', '$keterangan'
@@ -101,8 +103,9 @@ include "../template/header.php";
         <h6 class="fw-bold text-primary mb-3 small"><i class="bi bi-info-circle me-1"></i> INFORMASI UMUM</h6>
         <div class="row g-3 mb-3">
           <div class="col-md-3">
-            <label class="form-label fw-semibold text-dark small mb-1">Kode Mesin</label>
-            <input type="text" name="kode_mesin" class="form-control form-control-sm" placeholder="Contoh: MSN-001">
+            <label class="form-label fw-semibold text-dark small mb-1">Serial Number (SN)</label>
+            <!-- name="kode_mesin" diganti menjadi name="serial_number" -->
+            <input type="text" name="serial_number" class="form-control form-control-sm" placeholder="Contoh: SN-8829102">
           </div>
           <div class="col-md-5">
             <label class="form-label fw-semibold text-dark small mb-1">Nama Bagian <span class="text-danger">*</span></label>

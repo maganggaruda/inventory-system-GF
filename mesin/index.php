@@ -2,14 +2,18 @@
 include "../koneksi.php";
 include "../template/header.php";
 
-$keyword = isset($_GET['keyword']) ? mysqli_real_escape_string($conn, $_GET['keyword']) : '';
+$keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 
-$where_clause = "1=1";
+// Menggunakan Prepared Statement untuk pencarian aman
 if (!empty($keyword)) {
-    $where_clause = "(nama_mesin LIKE '%$keyword%' OR kode_mesin LIKE '%$keyword%' OR lokasi LIKE '%$keyword%')";
+    $stmt = mysqli_prepare($conn, "SELECT * FROM mesin WHERE (nama_mesin LIKE ? OR serial_number LIKE ? OR lokasi LIKE ?) ORDER BY id DESC");
+    $kw = "%" . $keyword . "%";
+    mysqli_stmt_bind_param($stmt, "sss", $kw, $kw, $kw);
+    mysqli_stmt_execute($stmt);
+    $sql = mysqli_stmt_get_result($stmt);
+} else {
+    $sql = mysqli_query($conn, "SELECT * FROM mesin ORDER BY id DESC");
 }
-
-$sql = mysqli_query($conn, "SELECT * FROM mesin WHERE $where_clause ORDER BY id DESC");
 ?>
 
 <div class="container-fluid p-0">
@@ -37,7 +41,7 @@ $sql = mysqli_query($conn, "SELECT * FROM mesin WHERE $where_clause ORDER BY id 
             <span class="input-group-text bg-light text-muted border-end-0">
               <i class="bi bi-search"></i>
             </span>
-            <input type="text" name="keyword" class="form-control border-start-0 ps-0" placeholder="Cari nama mesin, kode mesin, atau lokasi area..." value="<?= htmlspecialchars($keyword) ?>">
+            <input type="text" name="keyword" class="form-control border-start-0 ps-0" placeholder="Cari nama mesin, serial number, atau lokasi area..." value="<?= htmlspecialchars($keyword) ?>">
           </div>
         </div>
         <div class="col-md-2 d-flex gap-2">
@@ -61,7 +65,7 @@ $sql = mysqli_query($conn, "SELECT * FROM mesin WHERE $where_clause ORDER BY id 
         <i class="bi bi-gear-wide-connected me-2"></i>Daftar Mesin Terdaftar
       </h5>
       <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-7">
-        Total: <?= mysqli_num_rows($sql) ?> Mesin
+        Total: <?= $sql ? mysqli_num_rows($sql) : 0 ?> Mesin
       </span>
     </div>
 
@@ -70,7 +74,7 @@ $sql = mysqli_query($conn, "SELECT * FROM mesin WHERE $where_clause ORDER BY id 
         <thead>
           <tr>
             <th width="60" class="text-center">No</th>
-            <th width="160">Kode Mesin</th>
+            <th width="180">Serial Number</th>
             <th>Nama Mesin</th>
             <th>Lokasi Area</th>
             <th>Keterangan</th>
@@ -87,19 +91,19 @@ $sql = mysqli_query($conn, "SELECT * FROM mesin WHERE $where_clause ORDER BY id 
                 <td class="text-center fw-medium text-muted"><?= $no++ ?></td>
                 <td>
                   <span class="badge bg-light text-dark border font-monospace">
-                    <i class="bi bi-qr-code me-1 text-primary"></i><?= htmlspecialchars($d['kode_mesin'] ?: '-') ?>
+                    <i class="bi bi-qr-code me-1 text-primary"></i><?= htmlspecialchars($d['serial_number'] ?? '-') ?>
                   </span>
                 </td>
                 <td>
-                  <strong class="text-dark d-block"><?= htmlspecialchars($d['nama_mesin']) ?></strong>
+                  <strong class="text-dark d-block"><?= htmlspecialchars($d['nama_mesin'] ?? '-') ?></strong>
                 </td>
                 <td>
                   <span class="text-secondary small">
-                    <i class="bi bi-geo-alt text-danger me-1"></i><?= htmlspecialchars($d['lokasi'] ?: '-') ?>
+                    <i class="bi bi-geo-alt text-danger me-1"></i><?= htmlspecialchars($d['lokasi'] ?? '-') ?>
                   </span>
                 </td>
                 <td>
-                  <small class="text-muted"><?= htmlspecialchars($d['keterangan'] ?: '-') ?></small>
+                  <small class="text-muted"><?= htmlspecialchars($d['keterangan'] ?? '-') ?></small>
                 </td>
                 <td class="text-center">
                   <div class="btn-group btn-group-sm" role="group">

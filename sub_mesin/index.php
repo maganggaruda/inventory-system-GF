@@ -1,142 +1,156 @@
 <?php
 include "../koneksi.php";
-
-// Tangkap keyword pencarian jika ada
-$keyword = isset($_GET['search']) ? mysqli_real_escape_string($conn, trim($_GET['search'])) : '';
-
-// Buat query pencarian dinamis
-$query_str = "SELECT sm.*, m.kode_mesin, m.nama_mesin 
-              FROM sub_mesin sm 
-              LEFT JOIN mesin m ON sm.id_mesin = m.id";
-
-if (!empty($keyword)) {
-    $query_str .= " WHERE m.kode_mesin LIKE '%$keyword%' 
-                       OR m.nama_mesin LIKE '%$keyword%' 
-                       OR sm.nama_sub_mesin LIKE '%$keyword%' 
-                       OR sm.keterangan LIKE '%$keyword%'";
-}
-
-$query_str .= " ORDER BY sm.id DESC";
-$result = mysqli_query($conn, $query_str);
-
 include "../template/header.php";
+
+$keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
+
+// Query JOIN: Mengambil serial_number dan nama_mesin dari tabel mesin induk
+if (!empty($keyword)) {
+    $stmt = mysqli_prepare($conn, "SELECT sub_mesin.*, 
+                                          mesin.nama_mesin, 
+                                          mesin.serial_number AS sn_mesin_induk 
+                                   FROM sub_mesin 
+                                   LEFT JOIN mesin ON sub_mesin.id_mesin = mesin.id 
+                                   WHERE (sub_mesin.nama_sub_mesin LIKE ? 
+                                      OR sub_mesin.serial_number LIKE ? 
+                                      OR mesin.nama_mesin LIKE ? 
+                                      OR mesin.serial_number LIKE ?) 
+                                   ORDER BY sub_mesin.id DESC");
+    $kw = "%" . $keyword . "%";
+    mysqli_stmt_bind_param($stmt, "ssss", $kw, $kw, $kw, $kw);
+    mysqli_stmt_execute($stmt);
+    $sql = mysqli_stmt_get_result($stmt);
+} else {
+    $sql = mysqli_query($conn, "SELECT sub_mesin.*, 
+                                       mesin.nama_mesin, 
+                                       mesin.serial_number AS sn_mesin_induk 
+                                FROM sub_mesin 
+                                LEFT JOIN mesin ON sub_mesin.id_mesin = mesin.id 
+                                ORDER BY sub_mesin.id DESC");
+}
 ?>
 
 <div class="container-fluid p-0">
 
-  <!-- CARD 1: Header (Judul & Tombol Tambah) -->
-  <div class="card border-0 shadow-sm rounded-4 bg-white p-4 mb-3">
-    <div class="d-flex justify-content-between align-items-center">
+  <!-- PAGE HEADER -->
+  <div class="dashboard-header mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
       <div>
-        <h2 class="fw-bold text-dark m-0">Data Sub Mesin</h2>
-        <p class="text-muted small m-0 mt-1">Daftar unit sub-sistem dari mesin induk</p>
+        <h2 class="dashboard-title m-0">Data Sub Mesin</h2>
+        <p class="dashboard-subtitle m-0">Kelola daftar bagian/komponen sub-sistem mesin produksi</p>
       </div>
-      <a href="tambah.php" class="btn btn-primary fw-semibold px-4 py-2 rounded-3 d-flex align-items-center gap-2" style="background-color: #0056a6; border: none;">
-        <i class="bi bi-plus-lg fs-5"></i> Tambah Sub Mesin
+      <a href="tambah.php" class="btn btn-primary px-3 py-2 d-inline-flex align-items-center gap-2 shadow-sm">
+        <i class="bi bi-plus-lg fs-6"></i>
+        <span>Tambah Sub Mesin</span>
       </a>
     </div>
   </div>
 
-  <!-- CARD 2: Bar Pencarian (Search Bar Terpisah) -->
-  <div class="card border-0 shadow-sm rounded-4 bg-white p-3 mb-3">
-    <form method="GET" action="" class="row g-2 align-items-center">
-      <div class="col">
-        <div class="input-group">
-          <span class="input-group-text bg-white border-end-0 text-muted ps-3">
-            <i class="bi bi-search"></i>
-          </span>
-          <input type="text" name="search" class="form-control border-start-0 py-2" placeholder="Cari nama sub mesin, mesin induk, atau keterangan..." value="<?= htmlspecialchars($keyword); ?>">
+  <!-- FILTER & SEARCH CARD -->
+  <div class="content-card mb-4">
+    <div class="card-body-custom py-3">
+      <form method="GET" class="row g-2 align-items-center">
+        <div class="col-md-10">
+          <div class="input-group">
+            <span class="input-group-text bg-light text-muted border-end-0">
+              <i class="bi bi-search"></i>
+            </span>
+            <input type="text" name="keyword" class="form-control border-start-0 ps-0" placeholder="Cari sub mesin, serial number, nama mesin, atau SN mesin induk..." value="<?= htmlspecialchars($keyword) ?>">
+          </div>
         </div>
-      </div>
-      <div class="col-auto d-flex gap-2">
-        <button type="submit" class="btn btn-primary fw-semibold px-4 py-2 rounded-3" style="background-color: #0056a6; border: none;">
-          Cari
-        </button>
-        <?php if (!empty($keyword)) : ?>
-          <a href="index.php" class="btn btn-outline-secondary px-3 py-2 rounded-3" title="Reset Search">
-            <i class="bi bi-x-lg me-1"></i> Reset
-          </a>
-        <?php endif; ?>
-      </div>
-    </form>
+        <div class="col-md-2 d-flex gap-2">
+          <button type="submit" class="btn btn-primary w-100 fw-medium">
+            Cari
+          </button>
+          <?php if (!empty($keyword)): ?>
+            <a href="index.php" class="btn btn-outline-secondary" title="Reset Pencarian">
+              <i class="bi bi-arrow-counterclockwise"></i>
+            </a>
+          <?php endif; ?>
+        </div>
+      </form>
+    </div>
   </div>
 
-  <!-- CARD 3: Tabel Data Sub Mesin -->
-  <div class="card border-0 shadow-sm rounded-4 bg-white p-4 mb-4">
-    
-    <!-- Top Table Header: List Title & Badge Total -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div class="d-flex align-items-center gap-2">
-        <i class="bi bi-diagram-3 text-primary fs-5"></i>
-        <h5 class="fw-bold text-dark m-0">List Sub Mesin</h5>
-      </div>
-
-      <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-3 fw-semibold">
-        Total: <?= mysqli_num_rows($result); ?> Sub Mesin
+  <!-- TABLE CARD -->
+  <div class="content-card">
+    <div class="card-header-custom d-flex align-items-center justify-content-between">
+      <h5 class="card-title-custom m-0">
+        <i class="bi bi-diagram-3 me-2"></i>Daftar Sub Mesin Terdaftar
+      </h5>
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-7">
+        Total: <?= $sql ? mysqli_num_rows($sql) : 0 ?> Sub Mesin
       </span>
     </div>
 
-    <!-- Table -->
     <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead class="table-light">
-          <tr class="text-uppercase small text-muted fw-bold">
-            <th style="width: 50px;">NO</th>
-            <th>KODE MESIN</th>
-            <th>MESIN INDUK</th>
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th width="50" class="text-center">NO</th>
+            <th width="170">SERIAL NUMBER</th>
             <th>NAMA SUB MESIN</th>
+            <th>MESIN INDUK</th>
             <th>KETERANGAN</th>
-            <th class="text-center" style="width: 100px;">AKSI</th>
+            <th width="110" class="text-center">AKSI</th>
           </tr>
         </thead>
         <tbody>
-          <?php 
+          <?php
           $no = 1;
-          if (mysqli_num_rows($result) > 0) :
-            while ($row = mysqli_fetch_assoc($result)) : 
+          if ($sql && mysqli_num_rows($sql) > 0) :
+            while ($d = mysqli_fetch_assoc($sql)) :
           ?>
-            <tr>
-              <td class="fw-semibold text-muted"><?= $no++; ?></td>
-              <td>
-                <span class="badge bg-light text-dark border px-2 py-1 font-monospace">
-                  <i class="bi bi-qr-code me-1 text-primary"></i><?= htmlspecialchars($row['kode_mesin'] ?: '-'); ?>
-                </span>
-              </td>
-              <td class="fw-bold text-primary" style="color: #0056a6 !important;">
-                <?= htmlspecialchars($row['nama_mesin'] ?: '-'); ?>
-              </td>
-              <td class="fw-bold text-dark">
-                <?= htmlspecialchars($row['nama_sub_mesin']); ?>
-              </td>
-              <td class="text-muted small">
-                <?= htmlspecialchars($row['keterangan'] ?: '-'); ?>
-              </td>
-              <td class="text-center">
-                <div class="d-flex justify-content-center gap-1">
-                  <a href="edit.php?id=<?= $row['id']; ?>" class="btn btn-sm btn-outline-warning rounded-2 px-2" title="Edit">
-                    <i class="bi bi-pencil-square"></i>
-                  </a>
-                  <a href="hapus.php?id=<?= $row['id']; ?>" class="btn btn-sm btn-outline-danger rounded-2 px-2" onclick="return confirm('Yakin ingin menghapus sub mesin ini?')" title="Hapus">
-                    <i class="bi bi-trash"></i>
-                  </a>
-                </div>
-              </td>
-            </tr>
-          <?php 
+              <tr>
+                <td class="text-center fw-medium text-muted"><?= $no++ ?></td>
+                <td>
+                  <!-- MENAMPILKAN SERIAL NUMBER MESIN INDUK DI KOLOM SERIAL NUMBER -->
+                  <span class="badge bg-light text-dark border font-monospace">
+                    <?= htmlspecialchars(!empty($d['sn_mesin_induk']) ? $d['sn_mesin_induk'] : '-') ?>
+                  </span>
+                </td>
+                <td>
+                  <strong class="text-dark d-block"><?= htmlspecialchars($d['nama_sub_mesin'] ?? '-') ?></strong>
+                </td>
+                <td>
+                  <?php if (!empty($d['nama_mesin'])) : ?>
+                    <span class="fw-semibold text-dark">
+                      <i class="bi bi-building me-1 text-primary"></i><?= htmlspecialchars($d['nama_mesin']) ?>
+                    </span>
+                  <?php else : ?>
+                    <span class="badge bg-secondary-subtle text-secondary border">Tidak Terkait</span>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <small class="text-muted"><?= htmlspecialchars($d['keterangan'] ?? '-') ?></small>
+                </td>
+                <td class="text-center">
+                  <div class="btn-group btn-group-sm" role="group">
+                    <a href="edit.php?id=<?= $d['id'] ?>" class="btn btn-outline-warning" title="Edit Data">
+                      <i class="bi bi-pencil-square"></i>
+                    </a>
+                    <a href="hapus.php?id=<?= $d['id'] ?>" onclick="return confirm('Apakah Anda yakin ingin menghapus sub mesin ini?')" class="btn btn-outline-danger" title="Hapus Data">
+                      <i class="bi bi-trash"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            <?php
             endwhile;
-          else : 
-          ?>
+          else :
+            ?>
             <tr>
-              <td colspan="6" class="text-center py-4 text-muted">
-                <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
-                Data sub mesin tidak ditemukan<?= !empty($keyword) ? " untuk kata kunci \"<b>" . htmlspecialchars($keyword) . "</b>\"" : "" ?>.
+              <td colspan="6" class="text-center py-5">
+                <div class="text-muted">
+                  <i class="bi bi-inbox display-6 d-block mb-2 text-secondary"></i>
+                  <p class="mb-0 fw-medium">Data sub mesin tidak ditemukan.</p>
+                </div>
               </td>
             </tr>
           <?php endif; ?>
         </tbody>
       </table>
     </div>
-
   </div>
 
 </div>

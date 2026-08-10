@@ -12,7 +12,8 @@ $kondisi   = isset($_GET['kondisi']) ? mysqli_real_escape_string($conn, $_GET['k
 $where = ["1=1"];
 
 if (!empty($keyword)) {
-    $where[] = "(k.nama_bagian LIKE '%$keyword%' OR k.kode_mesin LIKE '%$keyword%' OR k.part_number LIKE '%$keyword%' OR k.brand LIKE '%$keyword%' OR k.kategori LIKE '%$keyword%')";
+    // k.kode_mesin diganti menjadi k.serial_number
+    $where[] = "(k.nama_bagian LIKE '%$keyword%' OR k.serial_number LIKE '%$keyword%' OR k.part_number LIKE '%$keyword%' OR k.brand LIKE '%$keyword%' OR k.kategori LIKE '%$keyword%')";
 }
 if (!empty($id_mesin)) {
     $where[] = "k.id_mesin = '$id_mesin'";
@@ -90,7 +91,7 @@ $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_m
 
         <div class="col-md-3">
           <label class="form-label small fw-semibold text-dark mb-1">Kata Kunci</label>
-          <input type="text" name="keyword" class="form-control form-control-sm" placeholder="Nama Bagian / Kode Mesin / Part No..." value="<?= htmlspecialchars($keyword) ?>">
+          <input type="text" name="keyword" class="form-control form-control-sm" placeholder="Nama Bagian / Serial Number / Part No..." value="<?= htmlspecialchars($keyword) ?>">
         </div>
 
         <div class="col-md-1 d-flex gap-1">
@@ -121,7 +122,7 @@ $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_m
         <thead>
           <tr>
             <th width="50" class="text-center">NO</th>
-            <th>KODE MESIN & NAMA BAGIAN</th>
+            <th>SERIAL NUMBER (SN) & NAMA BAGIAN</th>
             <th>BRAND / TIPE / PART NO</th>
             <th>MESIN & SUB MESIN</th>
             <th>KATEGORI</th>
@@ -150,7 +151,8 @@ $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_m
                 <td>
                   <strong class="text-dark d-block"><?= htmlspecialchars($d['nama_bagian'] ?: '-') ?></strong>
                   <span class="badge bg-light text-primary border font-monospace mt-1">
-                    <i class="bi bi-qr-code me-1"></i><?= htmlspecialchars($d['kode_mesin'] ?: '-') ?>
+                    <!-- $d['kode_mesin'] diganti menjadi $d['serial_number'] -->
+                    <i class="bi bi-qr-code me-1"></i><?= htmlspecialchars($d['serial_number'] ?: '-') ?>
                   </span>
                 </td>
                 <td>

@@ -4,23 +4,25 @@ include "../koneksi.php";
 $error = "";
 
 if (isset($_POST['simpan'])) {
-    $kode_mesin = mysqli_real_escape_string($conn, trim($_POST['kode_mesin']));
-    $nama_mesin = mysqli_real_escape_string($conn, trim($_POST['nama_mesin']));
-    $lokasi     = mysqli_real_escape_string($conn, trim($_POST['lokasi']));
-    $keterangan = mysqli_real_escape_string($conn, trim($_POST['keterangan']));
+    $serial_number = trim($_POST['serial_number']);
+    $nama_mesin    = trim($_POST['nama_mesin']);
+    $lokasi        = trim($_POST['lokasi']);
+    $keterangan    = trim($_POST['keterangan']);
 
     if (empty($nama_mesin)) {
         $error = "Nama Mesin wajib diisi!";
     } else {
-        $query = "INSERT INTO mesin (kode_mesin, nama_mesin, lokasi, keterangan) 
-                  VALUES ('$kode_mesin', '$nama_mesin', '$lokasi', '$keterangan')";
+        // Menggunakan Prepared Statement untuk keamanan
+        $stmt = mysqli_prepare($conn, "INSERT INTO mesin (serial_number, nama_mesin, lokasi, keterangan) VALUES (?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "ssss", $serial_number, $nama_mesin, $lokasi, $keterangan);
 
-        if (mysqli_query($conn, $query)) {
+        if (mysqli_stmt_execute($stmt)) {
             header("Location: index.php");
             exit;
         } else {
             $error = "Gagal menyimpan data: " . mysqli_error($conn);
         }
+        mysqli_stmt_close($stmt);
     }
 }
 
@@ -54,32 +56,32 @@ include "../template/header.php";
       <?php if (!empty($error)) : ?>
         <div class="alert alert-danger border-0 d-flex align-items-center py-2 px-3 mb-3" role="alert">
           <i class="bi bi-exclamation-triangle-fill fs-6 me-2"></i>
-          <div class="small"><?= $error; ?></div>
+          <div class="small"><?= htmlspecialchars($error); ?></div>
         </div>
       <?php endif; ?>
 
       <form method="POST">
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label fw-semibold text-dark small mb-1">Kode Mesin</label>
-            <input type="text" name="kode_mesin" class="form-control form-control-sm" placeholder="Contoh: MSN-001">
-            <div class="form-text mt-1 style-subtext">Kode unik identifikasi mesin.</div>
+            <label class="form-label fw-semibold text-dark small mb-1">Serial Number</label>
+            <input type="text" name="serial_number" class="form-control form-control-sm" placeholder="Contoh: SN-2024-001" value="<?= isset($_POST['serial_number']) ? htmlspecialchars($_POST['serial_number']) : '' ?>">
+            <div class="form-text mt-1 style-subtext">Nomor seri unik identifikasi mesin.</div>
           </div>
 
           <div class="col-md-6">
             <label class="form-label fw-semibold text-dark small mb-1">Nama Mesin <span class="text-danger">*</span></label>
-            <input type="text" name="nama_mesin" class="form-control form-control-sm" placeholder="Contoh: Mesin Packing Line 1" required>
+            <input type="text" name="nama_mesin" class="form-control form-control-sm" placeholder="Contoh: Mesin Packing Line 1" value="<?= isset($_POST['nama_mesin']) ? htmlspecialchars($_POST['nama_mesin']) : '' ?>" required>
             <div class="form-text mt-1 style-subtext">Nama resmi atau sebutan unit mesin.</div>
           </div>
 
           <div class="col-12">
             <label class="form-label fw-semibold text-dark small mb-1">Lokasi Area</label>
-            <input type="text" name="lokasi" class="form-control form-control-sm" placeholder="Contoh: Gedung A - Area Produksi Line 1">
+            <input type="text" name="lokasi" class="form-control form-control-sm" placeholder="Contoh: Gedung A - Area Produksi Line 1" value="<?= isset($_POST['lokasi']) ? htmlspecialchars($_POST['lokasi']) : '' ?>">
           </div>
 
           <div class="col-12">
             <label class="form-label fw-semibold text-dark small mb-1">Keterangan / Deskripsi</label>
-            <textarea name="keterangan" class="form-control form-control-sm" rows="2" placeholder="Tambahkan deskripsi atau catatan khusus tentang kondisi awal mesin..."></textarea>
+            <textarea name="keterangan" class="form-control form-control-sm" rows="2" placeholder="Tambahkan deskripsi atau catatan khusus tentang kondisi awal mesin..."><?= isset($_POST['keterangan']) ? htmlspecialchars($_POST['keterangan']) : '' ?></textarea>
           </div>
         </div>
 
