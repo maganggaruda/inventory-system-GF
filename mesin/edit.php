@@ -70,7 +70,7 @@ $val_keterangan = $data['keterangan'] ?? '';
 
             <form method="POST">
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Kode Mesin</label>
+                    <label class="form-label fw-semibold">Serial Number(SN)</label>
                     <input type="text" name="kode_mesin" class="form-control rounded-3" value="<?= htmlspecialchars($val_kode_mesin) ?>">
                 </div>
 
