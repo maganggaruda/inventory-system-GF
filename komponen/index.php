@@ -3,40 +3,64 @@ include "../koneksi.php";
 include "../template/header.php";
 
 // Parameter Filter
-$keyword   = isset($_GET['keyword']) ? mysqli_real_escape_string($conn, $_GET['keyword']) : '';
-$id_mesin  = isset($_GET['id_mesin']) ? mysqli_real_escape_string($conn, $_GET['id_mesin']) : '';
-$id_sub    = isset($_GET['id_sub_mesin']) ? mysqli_real_escape_string($conn, $_GET['id_sub_mesin']) : '';
-$kondisi   = isset($_GET['kondisi']) ? mysqli_real_escape_string($conn, $_GET['kondisi']) : '';
+$keyword  = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
+$id_mesin = isset($_GET['id_mesin']) ? intval($_GET['id_mesin']) : 0;
+$id_sub   = isset($_GET['id_sub_mesin']) ? intval($_GET['id_sub_mesin']) : 0;
+$kondisi  = isset($_GET['kondisi']) ? trim($_GET['kondisi']) : '';
 
-// Query Filtering
-$where = ["1=1"];
+// Konstruksi Prepared Statement Dinamis
+$where_conditions = ["1=1"];
+$params = [];
+$types  = "";
 
+// Filter Keyword (Menggunakan serial_number, bukan kode_mesin)
 if (!empty($keyword)) {
-    // k.kode_mesin diganti menjadi k.serial_number
-    $where[] = "(k.nama_bagian LIKE '%$keyword%' OR k.serial_number LIKE '%$keyword%' OR k.part_number LIKE '%$keyword%' OR k.brand LIKE '%$keyword%' OR k.kategori LIKE '%$keyword%')";
+    $where_conditions[] = "(k.nama_bagian LIKE ? OR k.serial_number LIKE ? OR k.part_number LIKE ? OR k.brand LIKE ? OR k.kategori LIKE ?)";
+    $searchTerm = "%{$keyword}%";
+    for ($i = 0; $i < 5; $i++) {
+        $params[] = $searchTerm;
+        $types   .= "s";
+    }
 }
+
 if (!empty($id_mesin)) {
-    $where[] = "k.id_mesin = '$id_mesin'";
+    $where_conditions[] = "k.id_mesin = ?";
+    $params[] = $id_mesin;
+    $types   .= "i";
 }
+
 if (!empty($id_sub)) {
-    $where[] = "k.id_sub_mesin = '$id_sub'";
+    $where_conditions[] = "k.id_sub_mesin = ?";
+    $params[] = $id_sub;
+    $types   .= "i";
 }
+
 if (!empty($kondisi)) {
-    $where[] = "k.kondisi = '$kondisi'";
+    $where_conditions[] = "k.kondisi = ?";
+    $params[] = $kondisi;
+    $types   .= "s";
 }
 
-$where_clause = implode(" AND ", $where);
+$where_clause = implode(" AND ", $where_conditions);
 
-// ORDER BY k.id ASC agar data pertama ditambahkan muncul paling atas
-$sql = mysqli_query($conn, "
-    SELECT k.*, m.nama_mesin as nama_mesin_relasi, sm.nama_sub_mesin as nama_sub_relasi 
-    FROM komponen k
-    LEFT JOIN mesin m ON k.id_mesin = m.id
-    LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
-    WHERE $where_clause
-    ORDER BY k.id ASC
-");
+// Query Utama
+$query = "SELECT k.*, m.nama_mesin as nama_mesin_relasi, sm.nama_sub_mesin as nama_sub_relasi 
+          FROM komponen k
+          LEFT JOIN mesin m ON k.id_mesin = m.id
+          LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
+          WHERE $where_clause
+          ORDER BY k.id ASC";
 
+$stmt = mysqli_prepare($conn, $query);
+
+if (!empty($params)) {
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+}
+
+mysqli_stmt_execute($stmt);
+$sql = mysqli_stmt_get_result($stmt);
+
+// Ambil List Mesin Induk untuk Dropdown Filter
 $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_mesin ASC");
 ?>
 
@@ -60,6 +84,8 @@ $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_m
   <div class="content-card mb-3">
     <div class="card-body-custom p-3">
       <form method="GET" id="filterForm" class="row g-2 align-items-end">
+        
+        <!-- MESIN -->
         <div class="col-md-3">
           <label class="form-label small fw-semibold text-dark mb-1">Mesin</label>
           <select name="id_mesin" id="filter_mesin" class="form-select form-select-sm" onchange="loadSubMesinFilter(this.value)">
@@ -72,6 +98,7 @@ $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_m
           </select>
         </div>
 
+        <!-- SUB MESIN -->
         <div class="col-md-3">
           <label class="form-label small fw-semibold text-dark mb-1">Sub Mesin</label>
           <select name="id_sub_mesin" id="filter_sub_mesin" class="form-select form-select-sm">
@@ -79,26 +106,29 @@ $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_m
           </select>
         </div>
 
+        <!-- KONDISI -->
         <div class="col-md-2">
           <label class="form-label small fw-semibold text-dark mb-1">Kondisi</label>
           <select name="kondisi" class="form-select form-select-sm">
             <option value="">-- Semua Kondisi --</option>
-            <option value="Baik" <?= ($kondisi == 'Baik') ? 'selected' : '' ?>>Baik</option>
-            <option value="Perlu Pemeriksaan" <?= ($kondisi == 'Perlu Pemeriksaan') ? 'selected' : '' ?>>Perlu Pemeriksaan</option>
-            <option value="Dalam Perbaikan" <?= ($kondisi == 'Dalam Perbaikan') ? 'selected' : '' ?>>Dalam Perbaikan</option>
+            <option value="Baik" <?= ($kondisi === 'Baik') ? 'selected' : '' ?>>Baik</option>
+            <option value="Perlu Pemeriksaan" <?= ($kondisi === 'Perlu Pemeriksaan') ? 'selected' : '' ?>>Perlu Pemeriksaan</option>
+            <option value="Dalam Perbaikan" <?= ($kondisi === 'Dalam Perbaikan') ? 'selected' : '' ?>>Dalam Perbaikan</option>
           </select>
         </div>
 
+        <!-- KATA KUNCI -->
         <div class="col-md-3">
           <label class="form-label small fw-semibold text-dark mb-1">Kata Kunci</label>
-          <input type="text" name="keyword" class="form-control form-control-sm" placeholder="Nama Bagian / Serial Number / Part No..." value="<?= htmlspecialchars($keyword) ?>">
+          <input type="text" name="keyword" class="form-control form-control-sm" placeholder="Nama Bagian / SN / Part No..." value="<?= htmlspecialchars($keyword) ?>">
         </div>
 
+        <!-- BUTTON ACTION -->
         <div class="col-md-1 d-flex gap-1">
-          <button type="submit" class="btn btn-sm btn-primary w-100" title="Filter">
+          <button type="submit" class="btn btn-sm btn-primary w-100" title="Terapkan Filter">
             <i class="bi bi-funnel"></i>
           </button>
-          <a href="index.php" class="btn btn-sm btn-outline-secondary" title="Reset">
+          <a href="index.php" class="btn btn-sm btn-outline-secondary" title="Reset Filter">
             <i class="bi bi-arrow-counterclockwise"></i>
           </a>
         </div>
@@ -121,8 +151,9 @@ $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_m
       <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
-            <th width="50" class="text-center">NO</th>
-            <th>SERIAL NUMBER (SN) & NAMA BAGIAN</th>
+            <th width="40" class="text-center">NO</th>
+            <th width="60" class="text-center">FOTO</th>
+            <th>SERIAL NUMBER & NAMA BAGIAN</th>
             <th>BRAND / TIPE / PART NO</th>
             <th>MESIN & SUB MESIN</th>
             <th>KATEGORI</th>
@@ -137,50 +168,77 @@ $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_m
             while ($d = mysqli_fetch_assoc($sql)) :
 
               $badgeKondisi = 'bg-success';
-              if ($d['kondisi'] == 'Dalam Perbaikan') {
+              if ($d['kondisi'] === 'Dalam Perbaikan') {
                   $badgeKondisi = 'bg-danger';
-              } elseif ($d['kondisi'] == 'Perlu Pemeriksaan') {
+              } elseif ($d['kondisi'] === 'Perlu Pemeriksaan') {
                   $badgeKondisi = 'bg-warning text-dark';
               }
 
-              $nama_m = $d['nama_mesin_relasi'] ?: ($d['mesin'] ?: '-');
-              $nama_s = $d['nama_sub_relasi'] ?: ($d['sub_mesin'] ?: '-');
+              $nama_m = $d['nama_mesin_relasi'] ?: '-';
+              $nama_s = $d['nama_sub_relasi'] ?: '-';
+              
+              // Cek Keberadaan File Gambar Komponen
+              $foto_path = "../uploads/komponen/" . $d['gambar'];
+              $has_foto  = !empty($d['gambar']) && file_exists($foto_path);
           ?>
               <tr>
                 <td class="text-center fw-medium text-muted"><?= $no++ ?></td>
+                
+                <!-- THUMBNAIL FOTO -->
+                <td class="text-center">
+                  <?php if ($has_foto) : ?>
+                    <img src="<?= htmlspecialchars($foto_path) ?>" alt="Foto" class="rounded border object-fit-cover" width="40" height="40">
+                  <?php else : ?>
+                    <div class="rounded border bg-light d-flex align-items-center justify-content-center mx-auto text-muted" style="width: 40px; height: 40px;">
+                      <i class="bi bi-image fs-6"></i>
+                    </div>
+                  <?php endif; ?>
+                </td>
+
+                <!-- NAMA & SERIAL NUMBER -->
                 <td>
                   <strong class="text-dark d-block"><?= htmlspecialchars($d['nama_bagian'] ?: '-') ?></strong>
                   <span class="badge bg-light text-primary border font-monospace mt-1">
-                    <!-- $d['kode_mesin'] diganti menjadi $d['serial_number'] -->
                     <i class="bi bi-qr-code me-1"></i><?= htmlspecialchars($d['serial_number'] ?: '-') ?>
                   </span>
                 </td>
+
+                <!-- BRAND, TIPE, PART NUMBER -->
                 <td>
                   <span class="fw-semibold text-dark"><?= htmlspecialchars($d['brand'] ?: '-') ?></span> 
                   <small class="text-muted">(<?= htmlspecialchars($d['tipe'] ?: '-') ?>)</small>
                   <br>
                   <small class="text-muted">PN: <?= htmlspecialchars($d['part_number'] ?: '-') ?></small>
                 </td>
+
+                <!-- MESIN & SUB MESIN RELASI -->
                 <td>
                   <small class="fw-semibold d-block text-dark"><?= htmlspecialchars($nama_m) ?></small>
                   <small class="text-muted"><?= htmlspecialchars($nama_s) ?></small>
                 </td>
+
+                <!-- KATEGORI -->
                 <td><span class="badge bg-light text-dark border"><?= htmlspecialchars($d['kategori'] ?: '-') ?></span></td>
+
+                <!-- KONDISI -->
                 <td><span class="badge <?= $badgeKondisi ?> px-2 py-1"><?= htmlspecialchars($d['kondisi'] ?: 'Baik') ?></span></td>
+
+                <!-- AKSI -->
                 <td class="text-center">
                   <div class="btn-group btn-group-sm" role="group">
                     <a href="detail.php?id=<?= $d['id'] ?>" class="btn btn-outline-info" title="Detail Data"><i class="bi bi-eye"></i></a>
                     <a href="edit.php?id=<?= $d['id'] ?>" class="btn btn-outline-warning" title="Edit Data"><i class="bi bi-pencil-square"></i></a>
-                    <a href="hapus.php?id=<?= $d['id'] ?>" onclick="return confirm('Hapus komponen ini?')" class="btn btn-outline-danger" title="Hapus Data"><i class="bi bi-trash"></i></a>
+                    <a href="hapus.php?id=<?= $d['id'] ?>" onclick="return confirm('Apakah Anda yakin ingin menghapus komponen ini?')" class="btn btn-outline-danger" title="Hapus Data"><i class="bi bi-trash"></i></a>
                   </div>
                 </td>
               </tr>
-            <?php endwhile; else : ?>
+            <?php endwhile; 
+          else : ?>
             <tr>
-              <td colspan="7" class="text-center py-5">
+              <td colspan="8" class="text-center py-5">
                 <div class="text-muted">
                   <i class="bi bi-inbox display-6 d-block mb-2 text-secondary"></i>
-                  <p class="mb-0 fw-medium">Data komponen belum ada atau tidak ditemukan.</p>
+                  <p class="mb-0 fw-medium">Data komponen tidak ditemukan atau belum ada.</p>
                 </div>
               </td>
             </tr>
@@ -193,27 +251,38 @@ $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_m
 </div>
 
 <script>
+// Load Sub-Mesin via Fetch API
 function loadSubMesinFilter(id_mesin, selectedSub = '') {
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', 'get_sub_mesin.php?id_mesin=' + id_mesin, true);
-  xhr.onload = function() {
-    if (this.status === 200) {
-      document.getElementById('filter_sub_mesin').innerHTML = this.responseText;
-      if(selectedSub !== ''){
-        document.getElementById('filter_sub_mesin').value = selectedSub;
+  const subDropdown = document.getElementById('filter_sub_mesin');
+  
+  if (!id_mesin) {
+    subDropdown.innerHTML = '<option value="">-- Semua Sub Mesin --</option>';
+    return;
+  }
+
+  fetch('get_sub_mesin.php?id_mesin=' + id_mesin)
+    .then(response => response.text())
+    .then(data => {
+      subDropdown.innerHTML = data;
+      if (selectedSub !== '') {
+        subDropdown.value = selectedSub;
       }
-    }
-  };
-  xhr.send();
+    })
+    .catch(err => console.error('Gagal memuat Sub Mesin:', err));
 }
 
+// Inisialisasi otomatis jika ada parameter filter dari URL
 document.addEventListener("DOMContentLoaded", function() {
   const currentMesin = "<?= $id_mesin ?>";
-  const currentSub = "<?= $id_sub ?>";
-  if (currentMesin !== "") {
+  const currentSub   = "<?= $id_sub ?>";
+
+  if (currentMesin !== "0" && currentMesin !== "") {
     loadSubMesinFilter(currentMesin, currentSub);
   }
 });
 </script>
 
-<?php include "../template/footer.php"; ?>
+<?php 
+mysqli_stmt_close($stmt);
+include "../template/footer.php"; 
+?>

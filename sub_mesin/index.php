@@ -88,7 +88,8 @@ if (!empty($keyword)) {
         <thead>
           <tr>
             <th width="50" class="text-center">NO</th>
-            <th width="170">SERIAL NUMBER</th>
+            <th width="80" class="text-center">FOTO</th>
+            <th width="160">SERIAL NUMBER</th>
             <th>NAMA SUB MESIN</th>
             <th>MESIN INDUK</th>
             <th>KETERANGAN</th>
@@ -100,18 +101,47 @@ if (!empty($keyword)) {
           $no = 1;
           if ($sql && mysqli_num_rows($sql) > 0) :
             while ($d = mysqli_fetch_assoc($sql)) :
+              // Cek file foto sub mesin
+              $foto_path = "../uploads/sub_mesin/" . ($d['gambar'] ?? '');
+              $has_foto  = !empty($d['gambar']) && file_exists($foto_path);
           ?>
               <tr>
                 <td class="text-center fw-medium text-muted"><?= $no++ ?></td>
-                <td>
-                  <!-- MENAMPILKAN SERIAL NUMBER MESIN INDUK DI KOLOM SERIAL NUMBER -->
-                  <span class="badge bg-light text-dark border font-monospace">
-                    <?= htmlspecialchars(!empty($d['sn_mesin_induk']) ? $d['sn_mesin_induk'] : '-') ?>
-                  </span>
+
+                <!-- KOLOM FOTO -->
+                <td class="text-center">
+                  <?php if ($has_foto) : ?>
+                    <img src="<?= $foto_path ?>" alt="<?= htmlspecialchars($d['nama_sub_mesin']) ?>" 
+                         class="rounded border object-fit-cover cursor-pointer" 
+                         width="48" height="48"
+                         data-bs-toggle="modal" 
+                         data-bs-target="#modalFoto<?= $d['id'] ?>"
+                         title="Klik untuk memperbesar">
+                  <?php else : ?>
+                    <div class="bg-light rounded border d-flex align-items-center justify-content-center mx-auto text-muted" style="width: 48px; height: 48px;">
+                      <i class="bi bi-image fs-5"></i>
+                    </div>
+                  <?php endif; ?>
                 </td>
+
+                <!-- KOLOM SERIAL NUMBER -->
+                <td>
+                  <span class="badge bg-light text-dark border font-monospace d-block text-truncate mb-1" style="max-width: 150px;" title="SN Sub Mesin">
+                    <?= htmlspecialchars(!empty($d['serial_number']) ? $d['serial_number'] : '-') ?>
+                  </span>
+                  <?php if (!empty($d['sn_mesin_induk'])) : ?>
+                    <small class="text-muted d-block text-truncate" style="font-size: 0.75rem;" title="SN Mesin Induk">
+                      Induk: <?= htmlspecialchars($d['sn_mesin_induk']) ?>
+                    </small>
+                  <?php endif; ?>
+                </td>
+
+                <!-- NAMA SUB MESIN -->
                 <td>
                   <strong class="text-dark d-block"><?= htmlspecialchars($d['nama_sub_mesin'] ?? '-') ?></strong>
                 </td>
+
+                <!-- MESIN INDUK -->
                 <td>
                   <?php if (!empty($d['nama_mesin'])) : ?>
                     <span class="fw-semibold text-dark">
@@ -121,9 +151,13 @@ if (!empty($keyword)) {
                     <span class="badge bg-secondary-subtle text-secondary border">Tidak Terkait</span>
                   <?php endif; ?>
                 </td>
+
+                <!-- KETERANGAN -->
                 <td>
                   <small class="text-muted"><?= htmlspecialchars($d['keterangan'] ?? '-') ?></small>
                 </td>
+
+                <!-- AKSI -->
                 <td class="text-center">
                   <div class="btn-group btn-group-sm" role="group">
                     <a href="edit.php?id=<?= $d['id'] ?>" class="btn btn-outline-warning" title="Edit Data">
@@ -135,12 +169,33 @@ if (!empty($keyword)) {
                   </div>
                 </td>
               </tr>
+
+              <!-- MODAL PREVIEW FOTO DETAIL -->
+              <?php if ($has_foto) : ?>
+                <div class="modal fade" id="modalFoto<?= $d['id'] ?>" tabindex="-1" aria-hidden="true">
+                  <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow">
+                      <div class="modal-header border-0 pb-0">
+                        <h6 class="modal-title fw-bold text-dark"><?= htmlspecialchars($d['nama_sub_mesin']) ?></h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body text-center p-4">
+                        <img src="<?= $foto_path ?>" class="img-fluid rounded border shadow-sm mb-3" style="max-height: 400px; object-fit: contain;">
+                        <p class="text-muted small mb-0">
+                          <i class="bi bi-building me-1"></i> Mesin Induk: <strong><?= htmlspecialchars($d['nama_mesin'] ?? '-') ?></strong>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              <?php endif; ?>
+
             <?php
             endwhile;
           else :
             ?>
             <tr>
-              <td colspan="6" class="text-center py-5">
+              <td colspan="7" class="text-center py-5">
                 <div class="text-muted">
                   <i class="bi bi-inbox display-6 d-block mb-2 text-secondary"></i>
                   <p class="mb-0 fw-medium">Data sub mesin tidak ditemukan.</p>

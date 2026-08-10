@@ -2,28 +2,75 @@
 include "../koneksi.php";
 
 $error = "";
+$val_id_mesin       = "";
+$val_serial_number  = "";
+$val_nama_sub_mesin = "";
+$val_keterangan     = "";
 
 if (isset($_POST['simpan'])) {
-    $id_mesin       = mysqli_real_escape_string($conn, $_POST['id_mesin']);
-    $nama_sub_mesin = mysqli_real_escape_string($conn, trim($_POST['nama_sub_mesin']));
-    $keterangan     = mysqli_real_escape_string($conn, trim($_POST['keterangan']));
+    $val_id_mesin       = intval($_POST['id_mesin'] ?? 0);
+    $val_serial_number  = trim($_POST['serial_number'] ?? '');
+    $val_nama_sub_mesin = trim($_POST['nama_sub_mesin'] ?? '');
+    $val_keterangan     = trim($_POST['keterangan'] ?? '');
 
-    if (empty($id_mesin) || empty($nama_sub_mesin)) {
+    $nama_gambar = null;
+
+    // Logika Upload Foto Sub Mesin
+    if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] === UPLOAD_ERR_OK) {
+        $fileTmpPath   = $_FILES['gambar']['tmp_name'];
+        $fileName      = $_FILES['gambar']['name'];
+        $fileSize      = $_FILES['gambar']['size'];
+
+        $fileExtension     = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+
+        if (in_array($fileExtension, $allowedExtensions)) {
+            if ($fileSize <= 2 * 1024 * 1024) { // Maksimal 2MB
+                $nama_gambar = "submesin_" . time() . "_" . uniqid() . "." . $fileExtension;
+                $targetDir   = "../uploads/sub_mesin/";
+
+                if (!is_dir($targetDir)) {
+                    mkdir($targetDir, 0777, true);
+                }
+
+                $targetPath = $targetDir . $nama_gambar;
+
+                if (!move_uploaded_file($fileTmpPath, $targetPath)) {
+                    $error = "Gagal mengunggah foto sub mesin ke server.";
+                }
+            } else {
+                $error = "Ukuran gambar terlalu besar! Maksimal 2MB.";
+            }
+        } else {
+            $error = "Format gambar tidak valid! Hanya diperbolehkan JPG, JPEG, PNG, dan WEBP.";
+        }
+    }
+
+    // Validasi Form Wajib
+    if (empty($val_id_mesin) || empty($val_nama_sub_mesin)) {
         $error = "Mesin Induk dan Nama Sub Mesin wajib diisi!";
-    } else {
-        $query = "INSERT INTO sub_mesin (id_mesin, nama_sub_mesin, keterangan) VALUES ('$id_mesin', '$nama_sub_mesin', '$keterangan')";
-        if (mysqli_query($conn, $query)) {
+    }
+
+    // Jika Tidak Ada Error Validasi & Upload
+    if (empty($error)) {
+        $stmt_insert = mysqli_prepare($conn, "INSERT INTO sub_mesin (id_mesin, serial_number, nama_sub_mesin, keterangan, gambar) VALUES (?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt_insert, "issss", $val_id_mesin, $val_serial_number, $val_nama_sub_mesin, $val_keterangan, $nama_gambar);
+
+        if (mysqli_stmt_execute($stmt_insert)) {
+            mysqli_stmt_close($stmt_insert);
             header("Location: index.php");
             exit;
         } else {
             $error = "Gagal menyimpan data: " . mysqli_error($conn);
         }
+        mysqli_stmt_close($stmt_insert);
     }
 }
 
-// Ambil daftar Mesin untuk Dropdown Relasi
-$q_mesin = mysqli_query($conn, "SELECT * FROM mesin ORDER BY nama_mesin ASC");
+// Ambil daftar Mesin Induk untuk Dropdown Relasi
+$q_mesin = mysqli_query($conn, "SELECT id, nama_mesin, lokasi FROM mesin ORDER BY nama_mesin ASC");
 
+// Render Header setelah logika redirect diproses
 include "../template/header.php";
 ?>
 
@@ -54,30 +101,49 @@ include "../template/header.php";
       <?php if (!empty($error)) : ?>
         <div class="alert alert-danger border-0 d-flex align-items-center py-2 px-3 mb-3" role="alert">
           <i class="bi bi-exclamation-triangle-fill fs-6 me-2"></i>
-          <div class="small"><?= $error; ?></div>
+          <div class="small"><?= htmlspecialchars($error); ?></div>
         </div>
       <?php endif; ?>
 
-      <form method="POST">
+      <!-- Form dengan multipart/form-data untuk upload foto -->
+      <form method="POST" enctype="multipart/form-data">
         <div class="row g-3">
+          <!-- MESIN INDUK -->
           <div class="col-md-6">
             <label class="form-label fw-semibold text-dark small mb-1">Pilih Mesin Induk <span class="text-danger">*</span></label>
             <select name="id_mesin" class="form-select form-select-sm" required>
               <option value="">-- Pilih Mesin --</option>
               <?php while ($m = mysqli_fetch_assoc($q_mesin)) : ?>
-                <option value="<?= $m['id']; ?>"><?= htmlspecialchars($m['nama_mesin']); ?> (<?= htmlspecialchars($m['lokasi'] ?: 'No Location'); ?>)</option>
+                <option value="<?= $m['id']; ?>" <?= ($val_id_mesin == $m['id']) ? 'selected' : ''; ?>>
+                  <?= htmlspecialchars($m['nama_mesin']); ?> (<?= htmlspecialchars($m['lokasi'] ?: 'No Location'); ?>)
+                </option>
               <?php endwhile; ?>
             </select>
           </div>
 
+          <!-- SERIAL NUMBER -->
           <div class="col-md-6">
-            <label class="form-label fw-semibold text-dark small mb-1">Nama Sub Mesin <span class="text-danger">*</span></label>
-            <input type="text" name="nama_sub_mesin" class="form-control form-control-sm" placeholder="Contoh: Conveyor Feeder / Motor Drive" required>
+            <label class="form-label fw-semibold text-dark small mb-1">Serial Number (SN)</label>
+            <input type="text" name="serial_number" class="form-control form-control-sm" value="<?= htmlspecialchars($val_serial_number) ?>" placeholder="Contoh: SUB-SN-2024-001">
           </div>
 
+          <!-- NAMA SUB MESIN -->
+          <div class="col-md-6">
+            <label class="form-label fw-semibold text-dark small mb-1">Nama Sub Mesin <span class="text-danger">*</span></label>
+            <input type="text" name="nama_sub_mesin" class="form-control form-control-sm" value="<?= htmlspecialchars($val_nama_sub_mesin) ?>" placeholder="Contoh: Conveyor Feeder / Motor Drive" required>
+          </div>
+
+          <!-- UPLOAD FOTO SUB MESIN -->
+          <div class="col-md-6">
+            <label class="form-label fw-semibold text-dark small mb-1">Foto Sub Mesin</label>
+            <input type="file" name="gambar" class="form-control form-control-sm" accept="image/png, image/jpeg, image/jpg, image/webp">
+            <div class="form-text mt-1 text-muted small" style="font-size: 0.75rem;">Format: JPG, JPEG, PNG, WEBP (Maks 2MB).</div>
+          </div>
+
+          <!-- KETERANGAN / DESKRIPSI -->
           <div class="col-12">
             <label class="form-label fw-semibold text-dark small mb-1">Keterangan / Deskripsi</label>
-            <textarea name="keterangan" class="form-control form-control-sm" rows="2" placeholder="Catatan atau fungsi sub mesin ini..."></textarea>
+            <textarea name="keterangan" class="form-control form-control-sm" rows="3" placeholder="Catatan atau fungsi sub mesin ini..."><?= htmlspecialchars($val_keterangan) ?></textarea>
           </div>
         </div>
 

@@ -4,6 +4,9 @@ include "../koneksi.php";
 $tgl_mulai   = isset($_GET['tgl_mulai']) ? $_GET['tgl_mulai'] : date('Y-m-01');
 $tgl_selesai = isset($_GET['tgl_selesai']) ? $_GET['tgl_selesai'] : date('Y-m-d');
 $jenis       = isset($_GET['jenis']) ? $_GET['jenis'] : 'maintenance';
+$id_mesin     = isset($_GET['id_mesin']) ? $_GET['id_mesin'] : '';
+$id_sub_mesin = isset($_GET['id_sub_mesin']) ? $_GET['id_sub_mesin'] : '';
+$cari_komp    = isset($_GET['cari_komponen']) ? trim($_GET['cari_komponen']) : '';
 
 // Set Header Http untuk Download File Excel (.xls)
 $filename = "Laporan_" . strtoupper($jenis) . "_" . date('Ymd_His') . ".xls";
@@ -12,24 +15,75 @@ header("Content-Disposition: attachment; filename=\"$filename\"");
 header("Pragma: no-cache");
 header("Expires: 0");
 
-// Query Data Berdasarkan Jenis Laporan (k.part_number diganti k.kode_mesin)
+// Query Data Berdasarkan Jenis Laporan & Filter Spesifik
 if ($jenis == 'maintenance') {
-    $sql = mysqli_query($conn, "
-        SELECT rm.*, k.nama_bagian, k.kode_mesin, m.nama_mesin 
+    $query = "
+        SELECT rm.*, k.nama_bagian, m.serial_number, m.nama_mesin 
         FROM riwayat_maintenance rm
         LEFT JOIN komponen k ON rm.id_komponen = k.id
         LEFT JOIN mesin m ON k.id_mesin = m.id
-        WHERE rm.tanggal BETWEEN '$tgl_mulai' AND '$tgl_selesai'
-        ORDER BY rm.tanggal DESC
-    ");
+        WHERE rm.tanggal BETWEEN ? AND ?
+    ";
+    $params = [$tgl_mulai, $tgl_selesai];
+    $types  = "ss";
+
+    if (!empty($id_mesin)) {
+        $query .= " AND k.id_mesin = ?";
+        $params[] = $id_mesin;
+        $types .= "i";
+    }
+    if (!empty($id_sub_mesin)) {
+        $query .= " AND k.id_sub_mesin = ?";
+        $params[] = $id_sub_mesin;
+        $types .= "i";
+    }
+    if (!empty($cari_komp)) {
+        $query .= " AND (k.nama_bagian LIKE ? OR m.serial_number LIKE ?)";
+        $params[] = "%$cari_komp%";
+        $params[] = "%$cari_komp%";
+        $types .= "ss";
+    }
+    $query .= " ORDER BY rm.tanggal DESC";
+
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    mysqli_stmt_execute($stmt);
+    $sql = mysqli_stmt_get_result($stmt);
 } else {
-    $sql = mysqli_query($conn, "
-        SELECT k.*, m.nama_mesin, sm.nama_sub_mesin
+    $query = "
+        SELECT k.*, m.nama_mesin, m.serial_number, sm.nama_sub_mesin
         FROM komponen k
         LEFT JOIN mesin m ON k.id_mesin = m.id
         LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
-        ORDER BY k.id DESC
-    ");
+        WHERE 1=1
+    ";
+    $params = [];
+    $types  = "";
+
+    if (!empty($id_mesin)) {
+        $query .= " AND k.id_mesin = ?";
+        $params[] = $id_mesin;
+        $types .= "i";
+    }
+    if (!empty($id_sub_mesin)) {
+        $query .= " AND k.id_sub_mesin = ?";
+        $params[] = $id_sub_mesin;
+        $types .= "i";
+    }
+    if (!empty($cari_komp)) {
+        $query .= " AND (k.nama_bagian LIKE ? OR m.serial_number LIKE ?)";
+        $params[] = "%$cari_komp%";
+        $params[] = "%$cari_komp%";
+        $types .= "ss";
+    }
+    $query .= " ORDER BY k.id DESC";
+
+    $stmt = mysqli_prepare($conn, $query);
+    if (!empty($params)) {
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    }
+    mysqli_stmt_execute($stmt);
+    $sql = mysqli_stmt_get_result($stmt);
 }
 ?>
 
@@ -48,7 +102,7 @@ if ($jenis == 'maintenance') {
 </head>
 <body>
 
-  <!-- Header Laporan dengan Logo Garudafood Format PNG (Compatible dengan Excel) -->
+  <!-- Header Laporan dengan Logo Garudafood Format PNG -->
   <table style="border: none; margin-bottom: 15px;">
     <tr style="border: none;">
       <td width="120" style="border: none; vertical-align: middle; text-align: center;">
@@ -56,7 +110,7 @@ if ($jenis == 'maintenance') {
       </td>
       <td style="border: none; vertical-align: middle;">
         <div class="title">PT GARUDAFOOD PUTRA PUTRI JAYA Tbk</div>
-        <div class="subtitle">LAPORAN <?= strtoupper($jenis) ?> INVENTARIS MESIN</div>
+        <div class="subtitle">LAPORAN <?= strtoupper(htmlspecialchars($jenis)) ?> INVENTARIS MESIN</div>
         <?php if ($jenis == 'maintenance') : ?>
           <div style="font-size: 9pt;">Periode: <?= date('d/m/Y', strtotime($tgl_mulai)) ?> s/d <?= date('d/m/Y', strtotime($tgl_selesai)) ?></div>
         <?php endif; ?>
@@ -75,7 +129,7 @@ if ($jenis == 'maintenance') {
           <th>Tanggal</th>
           <th>Nama Mesin</th>
           <th>Nama Komponen</th>
-          <th>Kode Mesin</th>
+          <th>Serial Number (SN)</th>
           <th>Tindakan / Detail Perbaikan</th>
           <th>Teknisi</th>
           <th>Status</th>
@@ -84,7 +138,7 @@ if ($jenis == 'maintenance') {
         <tr>
           <th width="30">No</th>
           <th>Nama Komponen</th>
-          <th>Kode Mesin</th>
+          <th>Serial Number (SN)</th>
           <th>Mesin Induk</th>
           <th>Sub Mesin</th>
           <th>Kondisi</th>
@@ -99,23 +153,24 @@ if ($jenis == 'maintenance') {
       ?>
           <?php if ($jenis == 'maintenance') : ?>
             <tr>
-              <td><?= $no++ ?></td>
-              <td><?= date('d/m/Y', strtotime($d['tanggal'])) ?></td>
-              <td><?= htmlspecialchars($d['nama_mesin'] ?: '-') ?></td>
-              <td><?= htmlspecialchars($d['nama_bagian'] ?: '-') ?></td>
-              <td style="mso-number-format:'\@';"><?= htmlspecialchars($d['kode_mesin'] ?: '-') ?></td>
-              <td><?= htmlspecialchars($d['tindakan']) ?></td>
-              <td><?= htmlspecialchars($d['teknisi'] ?? '-') ?></td>
-              <td><?= htmlspecialchars($d['status']) ?></td>
+              <td style="text-align: center;"><?= $no++ ?></td>
+              <td><?= !empty($d['tanggal']) ? date('d/m/Y', strtotime($d['tanggal'])) : '-' ?></td>
+              <td><?= htmlspecialchars(!empty($d['nama_mesin']) ? $d['nama_mesin'] : '-') ?></td>
+              <td><?= htmlspecialchars(!empty($d['nama_bagian']) ? $d['nama_bagian'] : '-') ?></td>
+              <!-- mso-number-format:'\@' agar Excel membaca string text & angka nol depan tidak hilang -->
+              <td style="mso-number-format:'\@';"><?= htmlspecialchars(!empty($d['serial_number']) ? $d['serial_number'] : '-') ?></td>
+              <td><?= htmlspecialchars(!empty($d['tindakan']) ? $d['tindakan'] : '-') ?></td>
+              <td><?= htmlspecialchars(!empty($d['teknisi']) ? $d['teknisi'] : '-') ?></td>
+              <td><?= htmlspecialchars(!empty($d['status']) ? $d['status'] : '-') ?></td>
             </tr>
           <?php else : ?>
             <tr>
-              <td><?= $no++ ?></td>
-              <td><?= htmlspecialchars($d['nama_bagian']) ?></td>
-              <td style="mso-number-format:'\@';"><?= htmlspecialchars($d['kode_mesin'] ?: '-') ?></td>
-              <td><?= htmlspecialchars($d['nama_mesin'] ?: '-') ?></td>
-              <td><?= htmlspecialchars($d['nama_sub_mesin'] ?: '-') ?></td>
-              <td><?= htmlspecialchars($d['kondisi']) ?></td>
+              <td style="text-align: center;"><?= $no++ ?></td>
+              <td><?= htmlspecialchars(!empty($d['nama_bagian']) ? $d['nama_bagian'] : '-') ?></td>
+              <td style="mso-number-format:'\@';"><?= htmlspecialchars(!empty($d['serial_number']) ? $d['serial_number'] : '-') ?></td>
+              <td><?= htmlspecialchars(!empty($d['nama_mesin']) ? $d['nama_mesin'] : '-') ?></td>
+              <td><?= htmlspecialchars(!empty($d['nama_sub_mesin']) ? $d['nama_sub_mesin'] : '-') ?></td>
+              <td><?= htmlspecialchars(!empty($d['kondisi']) ? $d['kondisi'] : 'Baik') ?></td>
             </tr>
           <?php endif; ?>
         <?php endwhile;
@@ -129,3 +184,8 @@ if ($jenis == 'maintenance') {
 
 </body>
 </html>
+<?php 
+if (isset($stmt)) {
+    mysqli_stmt_close($stmt);
+}
+?>
