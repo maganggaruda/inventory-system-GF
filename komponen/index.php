@@ -23,8 +23,9 @@ if (!empty($keyword)) {
     }
 }
 
+// Filter berdasarkan Mesin melalui relasi sub_mesin
 if (!empty($id_mesin)) {
-    $where_conditions[] = "k.id_mesin = ?";
+    $where_conditions[] = "sm.id_mesin = ?";
     $params[] = $id_mesin;
     $types   .= "i";
 }
@@ -43,11 +44,11 @@ if (!empty($kondisi)) {
 
 $where_clause = implode(" AND ", $where_conditions);
 
-// Query Utama
+// Query Utama (Disesuaikan dengan struktur database baru: komponen -> sub_mesin -> mesin)
 $query = "SELECT k.*, m.nama_mesin as nama_mesin_relasi, sm.nama_sub_mesin as nama_sub_relasi 
           FROM komponen k
-          LEFT JOIN mesin m ON k.id_mesin = m.id
           LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
+          LEFT JOIN mesin m ON sm.id_mesin = m.id
           WHERE $where_clause
           ORDER BY k.id ASC";
 

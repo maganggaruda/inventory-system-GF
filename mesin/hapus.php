@@ -1,9 +1,31 @@
 <?php
 include "../koneksi.php";
 
-$id=$_GET['id'];
+if (isset($_GET['id'])) {
+    $id = intval($_GET['id']);
 
-mysqli_query($conn,"DELETE FROM mesin WHERE id='$id'");
+    // Ambil data gambar lama untuk dihapus dari folder jika ada
+    $q_cek = mysqli_query($conn, "SELECT gambar FROM mesin WHERE id = $id");
+    if ($q_cek && mysqli_num_rows($q_cek) > 0) {
+        $data = mysqli_fetch_assoc($q_cek);
+        if (!empty($data['gambar'])) {
+            $filePath = "../uploads/mesin/" . $data['gambar'];
+            if (file_exists($filePath)) {
+                unlink($filePath); // Hapus file fisik gambar
+            }
+        }
+    }
 
-header("Location:index.php");
+    // Eksekusi hapus data dari database
+    $query = "DELETE FROM mesin WHERE id = $id";
+    if (mysqli_query($conn, $query)) {
+        header("Location: index.php");
+        exit;
+    } else {
+        echo "Gagal menghapus data: " . mysqli_error($conn);
+    }
+} else {
+    header("Location: index.php");
+    exit;
+}
 ?>

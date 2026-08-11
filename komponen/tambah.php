@@ -4,12 +4,14 @@ include "../koneksi.php";
 $error = "";
 
 if (isset($_POST['simpan'])) {
-    $serial_number    = trim($_POST['serial_number']);
-    $id_mesin         = !empty($_POST['id_mesin']) ? intval($_POST['id_mesin']) : NULL;
-    $id_sub_mesin     = !empty($_POST['id_sub_mesin']) ? intval($_POST['id_sub_mesin']) : NULL;
+    $serial_number      = trim($_POST['serial_number']);
+    $id_area            = !empty($_POST['id_area']) ? intval($_POST['id_area']) : NULL;
+    $id_jenis_mesin     = !empty($_POST['id_jenis_mesin']) ? intval($_POST['id_jenis_mesin']) : NULL;
+    $id_mesin           = !empty($_POST['id_mesin']) ? intval($_POST['id_mesin']) : NULL;
+    $id_sub_mesin       = !empty($_POST['id_sub_mesin']) ? intval($_POST['id_sub_mesin']) : NULL;
     
-    $mesin_str     = "";
-    $sub_mesin_str = "";
+    $mesin_str      = "";
+    $sub_mesin_str  = "";
 
     // Ambil nama mesin jika ID dipilih
     if ($id_mesin) {
@@ -68,11 +70,9 @@ if (isset($_POST['simpan'])) {
         } elseif ($file_size > $max_size) {
             $error = "Ukuran gambar tidak boleh lebih dari 2MB!";
         } else {
-            // Buat nama unik untuk file
             $nama_gambar = "KMP_" . time() . "_" . rand(100, 999) . "." . $file_ext;
             $target_dir  = "../uploads/komponen/";
 
-            // Buat folder jika belum ada
             if (!is_dir($target_dir)) {
                 mkdir($target_dir, 0755, true);
             }
@@ -89,17 +89,17 @@ if (isset($_POST['simpan'])) {
 
     if (empty($error)) {
         $query = "INSERT INTO komponen (
-                    serial_number, id_mesin, id_sub_mesin, mesin, sub_mesin, nama_bagian, kategori, 
+                    serial_number, id_sub_mesin, mesin, sub_mesin, nama_bagian, kategori, 
                     brand, tipe, part_number, daya, io_address, input_voltage, 
                     frekuensi_input, arus_input, output, frekuensi_output, ip_rating, 
                     lokasi, kondisi, keterangan, gambar
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conn, $query);
         mysqli_stmt_bind_param(
             $stmt, 
-            "siisssssssssssssssssss", 
-            $serial_number, $id_mesin, $id_sub_mesin, $mesin_str, $sub_mesin_str, $nama_bagian, $kategori,
+            "sisssssssssssssssssss", 
+            $serial_number, $id_sub_mesin, $mesin_str, $sub_mesin_str, $nama_bagian, $kategori,
             $brand, $tipe, $part_number, $daya, $io_address, $input_voltage,
             $frekuensi_input, $arus_input, $output, $frekuensi_output, $ip_rating,
             $lokasi, $kondisi, $keterangan, $nama_gambar
@@ -115,7 +115,8 @@ if (isset($_POST['simpan'])) {
     }
 }
 
-$q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_mesin ASC");
+// Ambil data Area / Bagian untuk dropdown pertama
+$q_area = mysqli_query($conn, "SELECT id, nama_area FROM area_bagian ORDER BY nama_area ASC");
 
 include "../template/header.php";
 ?>
@@ -167,24 +168,39 @@ include "../template/header.php";
             <label class="form-label fw-semibold text-dark small mb-1">Kategori</label>
             <input type="text" name="kategori" class="form-control form-control-sm" placeholder="Contoh: Kelistrikan / Mekanik" value="<?= isset($_POST['kategori']) ? htmlspecialchars($_POST['kategori']) : '' ?>">
           </div>
-          <div class="col-md-4">
-            <label class="form-label fw-semibold text-dark small mb-1">Mesin Induk</label>
-            <select name="id_mesin" id="form_mesin" class="form-select form-select-sm" onchange="loadSubMesinForm(this.value)">
-              <option value="">-- Pilih Mesin --</option>
-              <?php while ($m = mysqli_fetch_assoc($q_mesin)) : ?>
-                <option value="<?= $m['id'] ?>" <?= (isset($_POST['id_mesin']) && $_POST['id_mesin'] == $m['id']) ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($m['nama_mesin']) ?>
+          
+          <!-- Tambahan Dropdown Area & Jenis Mesin agar sinkron dengan database baru -->
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-dark small mb-1">Area / Bagian</label>
+            <select name="id_area" id="form_area" class="form-select form-select-sm" onchange="loadJenisMesin(this.value)">
+              <option value="">-- Pilih Area --</option>
+              <?php while ($a = mysqli_fetch_assoc($q_area)) : ?>
+                <option value="<?= $a['id'] ?>">
+                  <?= htmlspecialchars($a['nama_area']) ?>
                 </option>
               <?php endwhile; ?>
             </select>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-dark small mb-1">Jenis Mesin</label>
+            <select name="id_jenis_mesin" id="form_jenis_mesin" class="form-select form-select-sm" onchange="loadMesin(this.value)">
+              <option value="">-- Pilih Jenis Mesin --</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-dark small mb-1">Mesin Induk</label>
+            <select name="id_mesin" id="form_mesin" class="form-select form-select-sm" onchange="loadSubMesinForm(this.value)">
+              <option value="">-- Pilih Mesin --</option>
+            </select>
+          </div>
+          <div class="col-md-3">
             <label class="form-label fw-semibold text-dark small mb-1">Sub Mesin</label>
             <select name="id_sub_mesin" id="form_sub_mesin" class="form-select form-select-sm">
               <option value="">-- Pilih Sub Mesin --</option>
             </select>
           </div>
-          <div class="col-md-4">
+
+          <div class="col-md-12">
             <label class="form-label fw-semibold text-dark small mb-1">Lokasi Penempatan</label>
             <input type="text" name="lokasi" class="form-control form-control-sm" placeholder="Contoh: Panel Utama / Line 1" value="<?= isset($_POST['lokasi']) ? htmlspecialchars($_POST['lokasi']) : '' ?>">
           </div>
@@ -281,18 +297,47 @@ include "../template/header.php";
 </div>
 
 <script>
+function loadJenisMesin(id_area) {
+  const jenisSelect = document.getElementById('form_jenis_mesin');
+  const mesinSelect = document.getElementById('form_mesin');
+  const subSelect = document.getElementById('form_sub_mesin');
+  
+  jenisSelect.innerHTML = '<option value="">-- Pilih Jenis Mesin --</option>';
+  mesinSelect.innerHTML = '<option value="">-- Pilih Mesin --</option>';
+  subSelect.innerHTML = '<option value="">-- Pilih Sub Mesin --</option>';
+
+  if (!id_area) return;
+
+  fetch('get_jenis_mesin.php?id_area=' + id_area)
+    .then(response => response.text())
+    .then(data => { jenisSelect.innerHTML = data; })
+    .catch(err => console.error('Gagal memuat Jenis Mesin:', err));
+}
+
+function loadMesin(id_jenis) {
+  const mesinSelect = document.getElementById('form_mesin');
+  const subSelect = document.getElementById('form_sub_mesin');
+  
+  mesinSelect.innerHTML = '<option value="">-- Pilih Mesin --</option>';
+  subSelect.innerHTML = '<option value="">-- Pilih Sub Mesin --</option>';
+
+  if (!id_jenis) return;
+
+  fetch('get_mesin.php?id_jenis=' + id_jenis)
+    .then(response => response.text())
+    .then(data => { mesinSelect.innerHTML = data; })
+    .catch(err => console.error('Gagal memuat Mesin:', err));
+}
+
 function loadSubMesinForm(id_mesin) {
   const subSelect = document.getElementById('form_sub_mesin');
-  if (!id_mesin) {
-    subSelect.innerHTML = '<option value="">-- Pilih Sub Mesin --</option>';
-    return;
-  }
+  subSelect.innerHTML = '<option value="">-- Pilih Sub Mesin --</option>';
+
+  if (!id_mesin) return;
 
   fetch('get_sub_mesin.php?id_mesin=' + id_mesin)
     .then(response => response.text())
-    .then(data => {
-      subSelect.innerHTML = data;
-    })
+    .then(data => { subSelect.innerHTML = data; })
     .catch(err => console.error('Gagal memuat Sub Mesin:', err));
 }
 </script>

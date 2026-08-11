@@ -3,8 +3,15 @@ include "../koneksi.php";
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-// Ambil data komponen berdasarkan ID
-$stmt_get = mysqli_prepare($conn, "SELECT * FROM komponen WHERE id = ?");
+// Ambil data komponen beserta informasi relasi sub_mesin, mesin, jenis_mesin, dan area
+$stmt_get = mysqli_prepare($conn, "
+    SELECT k.*, sm.id_mesin, m.id_jenis_mesin, jm.id_area 
+    FROM komponen k
+    LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
+    LEFT JOIN mesin m ON sm.id_mesin = m.id
+    LEFT JOIN jenis_mesin jm ON m.id_jenis_mesin = jm.id
+    WHERE k.id = ?
+");
 mysqli_stmt_bind_param($stmt_get, "i", $id);
 mysqli_stmt_execute($stmt_get);
 $result = mysqli_stmt_get_result($stmt_get);
@@ -19,9 +26,10 @@ if (!$d) {
 $error = "";
 
 if (isset($_POST['update'])) {
-    $kode_mesin       = trim($_POST['kode_mesin'] ?? '');
-    $id_mesin         = !empty($_POST['id_mesin']) ? intval($_POST['id_mesin']) : null;
-    $id_sub_mesin     = !empty($_POST['id_sub_mesin']) ? intval($_POST['id_sub_mesin']) : null;
+    $id_area            = !empty($_POST['id_area']) ? intval($_POST['id_area']) : null;
+    $id_jenis_mesin     = !empty($_POST['id_jenis_mesin']) ? intval($_POST['id_jenis_mesin']) : null;
+    $id_mesin           = !empty($_POST['id_mesin']) ? intval($_POST['id_mesin']) : null;
+    $id_sub_mesin       = !empty($_POST['id_sub_mesin']) ? intval($_POST['id_sub_mesin']) : null;
     
     $mesin_str = "";
     $sub_mesin_str = "";
@@ -50,30 +58,30 @@ if (isset($_POST['update'])) {
         mysqli_stmt_close($stmt_s);
     }
 
-    $nama_bagian      = trim($_POST['nama_bagian'] ?? '');
-    $kategori         = trim($_POST['kategori'] ?? '');
-    $brand            = trim($_POST['brand'] ?? '');
-    $tipe             = trim($_POST['tipe'] ?? '');
-    $part_number      = trim($_POST['part_number'] ?? '');
-    $daya             = trim($_POST['daya'] ?? '');
-    $io_address       = trim($_POST['io_address'] ?? '');
-    $input_voltage    = trim($_POST['input_voltage'] ?? '');
-    $frekuensi_input  = trim($_POST['frekuensi_input'] ?? '');
-    $arus_input       = trim($_POST['arus_input'] ?? '');
-    $output           = trim($_POST['output'] ?? '');
-    $frekuensi_output = trim($_POST['frekuensi_output'] ?? '');
-    $ip_rating        = trim($_POST['ip_rating'] ?? '');
-    $lokasi           = trim($_POST['lokasi'] ?? '');
-    $kondisi          = trim($_POST['kondisi'] ?? 'Baik');
-    $keterangan       = trim($_POST['keterangan'] ?? '');
+    $serial_number      = trim($_POST['serial_number'] ?? '');
+    $nama_bagian        = trim($_POST['nama_bagian'] ?? '');
+    $kategori           = trim($_POST['kategori'] ?? '');
+    $brand              = trim($_POST['brand'] ?? '');
+    $tipe               = trim($_POST['tipe'] ?? '');
+    $part_number        = trim($_POST['part_number'] ?? '');
+    $daya               = trim($_POST['daya'] ?? '');
+    $io_address         = trim($_POST['io_address'] ?? '');
+    $input_voltage      = trim($_POST['input_voltage'] ?? '');
+    $frekuensi_input    = trim($_POST['frekuensi_input'] ?? '');
+    $arus_input         = trim($_POST['arus_input'] ?? '');
+    $output             = trim($_POST['output'] ?? '');
+    $frekuensi_output   = trim($_POST['frekuensi_output'] ?? '');
+    $ip_rating          = trim($_POST['ip_rating'] ?? '');
+    $lokasi             = trim($_POST['lokasi'] ?? '');
+    $kondisi            = trim($_POST['kondisi'] ?? 'Baik');
+    $keterangan         = trim($_POST['keterangan'] ?? '');
 
     if (empty($nama_bagian)) {
         $error = "Nama Bagian wajib diisi!";
     } else {
         // Query UPDATE menggunakan Prepared Statement
         $sql_update = "UPDATE komponen SET 
-                        kode_mesin = ?,
-                        id_mesin = ?,
+                        serial_number = ?,
                         id_sub_mesin = ?,
                         mesin = ?,
                         sub_mesin = ?,
@@ -98,9 +106,8 @@ if (isset($_POST['update'])) {
         $stmt_up = mysqli_prepare($conn, $sql_update);
         mysqli_stmt_bind_param(
             $stmt_up, 
-            "siissssssssssssssssssi",
-            $kode_mesin,
-            $id_mesin,
+            "sissssssssssssssssssi",
+            $serial_number,
             $id_sub_mesin,
             $mesin_str,
             $sub_mesin_str,
@@ -134,8 +141,8 @@ if (isset($_POST['update'])) {
     }
 }
 
-// Ambil daftar Mesin untuk Dropdown Select (Termasuk Serial Number Mesin)
-$q_mesin = mysqli_query($conn, "SELECT id, nama_mesin, serial_number FROM mesin ORDER BY nama_mesin ASC");
+// Ambil daftar Area untuk dropdown pertama
+$q_area = mysqli_query($conn, "SELECT id, nama_area FROM area_bagian ORDER BY nama_area ASC");
 
 include "../template/header.php";
 ?>
@@ -175,8 +182,8 @@ include "../template/header.php";
         <h6 class="fw-bold text-primary mb-3 small"><i class="bi bi-info-circle me-1"></i> INFORMASI UMUM</h6>
         <div class="row g-3 mb-3">
           <div class="col-md-3">
-            <label class="form-label fw-semibold text-dark small mb-1">Kode / Serial Number Mesin</label>
-            <input type="text" name="kode_mesin" class="form-control form-control-sm" value="<?= htmlspecialchars($d['kode_mesin'] ?? '') ?>">
+            <label class="form-label fw-semibold text-dark small mb-1">Serial Number (SN)</label>
+            <input type="text" name="serial_number" class="form-control form-control-sm" value="<?= htmlspecialchars($d['serial_number'] ?? '') ?>">
           </div>
           <div class="col-md-5">
             <label class="form-label fw-semibold text-dark small mb-1">Nama Bagian <span class="text-danger">*</span></label>
@@ -186,24 +193,39 @@ include "../template/header.php";
             <label class="form-label fw-semibold text-dark small mb-1">Kategori</label>
             <input type="text" name="kategori" class="form-control form-control-sm" value="<?= htmlspecialchars($d['kategori'] ?? '') ?>">
           </div>
-          <div class="col-md-4">
-            <label class="form-label fw-semibold text-dark small mb-1">Mesin Induk</label>
-            <select name="id_mesin" id="form_mesin" class="form-select form-select-sm" onchange="loadSubMesinForm(this.value)">
-              <option value="">-- Pilih Mesin --</option>
-              <?php while ($m = mysqli_fetch_assoc($q_mesin)) : ?>
-                <option value="<?= $m['id'] ?>" <?= ($m['id'] == $d['id_mesin']) ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($m['nama_mesin']) ?> <?= !empty($m['serial_number']) ? '('.htmlspecialchars($m['serial_number']).')' : '' ?>
+          
+          <!-- HIERARKI DROPDOWN (Area -> Jenis Mesin -> Mesin -> Sub Mesin) -->
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-dark small mb-1">Area / Bagian</label>
+            <select name="id_area" id="form_area" class="form-select form-select-sm" onchange="loadJenisMesin(this.value)">
+              <option value="">-- Pilih Area --</option>
+              <?php while ($a = mysqli_fetch_assoc($q_area)) : ?>
+                <option value="<?= $a['id'] ?>" <?= ($a['id'] == $d['id_area']) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($a['nama_area']) ?>
                 </option>
               <?php endwhile; ?>
             </select>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-dark small mb-1">Jenis Mesin</label>
+            <select name="id_jenis_mesin" id="form_jenis_mesin" class="form-select form-select-sm" onchange="loadMesin(this.value)">
+              <option value="">-- Pilih Jenis Mesin --</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-dark small mb-1">Mesin Induk</label>
+            <select name="id_mesin" id="form_mesin" class="form-select form-select-sm" onchange="loadSubMesinForm(this.value)">
+              <option value="">-- Pilih Mesin --</option>
+            </select>
+          </div>
+          <div class="col-md-3">
             <label class="form-label fw-semibold text-dark small mb-1">Sub Mesin</label>
             <select name="id_sub_mesin" id="form_sub_mesin" class="form-select form-select-sm">
               <option value="">-- Pilih Sub Mesin --</option>
             </select>
           </div>
-          <div class="col-md-4">
+
+          <div class="col-md-12">
             <label class="form-label fw-semibold text-dark small mb-1">Lokasi Penempatan</label>
             <input type="text" name="lokasi" class="form-control form-control-sm" value="<?= htmlspecialchars($d['lokasi'] ?? '') ?>">
           </div>
@@ -293,25 +315,80 @@ include "../template/header.php";
 </div>
 
 <script>
-function loadSubMesinForm(id_mesin, selectedSub = '') {
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', 'get_sub_mesin.php?id_mesin=' + id_mesin, true);
-  xhr.onload = function() {
-    if (this.status === 200) {
-      document.getElementById('form_sub_mesin').innerHTML = this.responseText;
-      if (selectedSub !== '') {
-        document.getElementById('form_sub_mesin').value = selectedSub;
+function loadJenisMesin(id_area, selectedJenis = '') {
+  const jenisSelect = document.getElementById('form_jenis_mesin');
+  const mesinSelect = document.getElementById('form_mesin');
+  const subSelect = document.getElementById('form_sub_mesin');
+  
+  jenisSelect.innerHTML = '<option value="">-- Pilih Jenis Mesin --</option>';
+  mesinSelect.innerHTML = '<option value="">-- Pilih Mesin --</option>';
+  subSelect.innerHTML = '<option value="">-- Pilih Sub Mesin --</option>';
+
+  if (!id_area) return;
+
+  fetch('get_jenis_mesin.php?id_area=' + id_area)
+    .then(response => response.text())
+    .then(data => {
+      jenisSelect.innerHTML = data;
+      if (selectedJenis !== '') {
+        jenisSelect.value = selectedJenis;
       }
-    }
-  };
-  xhr.send();
+    })
+    .catch(err => console.error('Gagal memuat Jenis Mesin:', err));
 }
 
+function loadMesin(id_jenis, selectedMesin = '') {
+  const mesinSelect = document.getElementById('form_mesin');
+  const subSelect = document.getElementById('form_sub_mesin');
+  
+  mesinSelect.innerHTML = '<option value="">-- Pilih Mesin --</option>';
+  subSelect.innerHTML = '<option value="">-- Pilih Sub Mesin --</option>';
+
+  if (!id_jenis) return;
+
+  fetch('get_mesin.php?id_jenis=' + id_jenis)
+    .then(response => response.text())
+    .then(data => {
+      mesinSelect.innerHTML = data;
+      if (selectedMesin !== '') {
+        mesinSelect.value = selectedMesin;
+      }
+    })
+    .catch(err => console.error('Gagal memuat Mesin:', err));
+}
+
+function loadSubMesinForm(id_mesin, selectedSub = '') {
+  const subSelect = document.getElementById('form_sub_mesin');
+  subSelect.innerHTML = '<option value="">-- Pilih Sub Mesin --</option>';
+
+  if (!id_mesin) return;
+
+  fetch('get_sub_mesin.php?id_mesin=' + id_mesin)
+    .then(response => response.text())
+    .then(data => {
+      subSelect.innerHTML = data;
+      if (selectedSub !== '') {
+        subSelect.value = selectedSub;
+      }
+    })
+    .catch(err => console.error('Gagal memuat Sub Mesin:', err));
+}
+
+// Inisialisasi otomatis saat halaman dimuat (untuk mengisi nilai awal form edit)
 document.addEventListener("DOMContentLoaded", function() {
-  const currentMesin = "<?= $d['id_mesin'] ?? '' ?>";
-  const currentSub   = "<?= $d['id_sub_mesin'] ?? '' ?>";
-  if (currentMesin !== "") {
-    loadSubMesinForm(currentMesin, currentSub);
+  const initArea  = "<?= $d['id_area'] ?? '' ?>";
+  const initJenis = "<?= $d['id_jenis_mesin'] ?? '' ?>";
+  const initMesin = "<?= $d['id_mesin'] ?? '' ?>";
+  const initSub   = "<?= $d['id_sub_mesin'] ?? '' ?>";
+
+  if (initArea !== "") {
+    loadJenisMesin(initArea, initJenis);
+    if (initJenis !== "") {
+      loadMesin(initJenis, initMesin);
+      if (initMesin !== "") {
+        loadSubMesinForm(initMesin, initSub);
+      }
+    }
   }
 });
 </script>

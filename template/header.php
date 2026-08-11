@@ -39,42 +39,57 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
 
         <nav class="sidebar-menu">
 
-            <a href="/inventory_mesin/dashboard/index.php" class="<?= ($current_dir == 'dashboard') ? 'active' : '' ?>">
+            <a href="/inventory_mesin/dashboard/index.php" class="<?= (strpos($_SERVER['REQUEST_URI'], '/dashboard/') !== false) ? 'active' : '' ?>">
                 <i class="bi bi-speedometer2"></i>
                 Dashboard
             </a>
 
-            <a href="/inventory_mesin/hierarki.php" class="nav-link <?= (isset($active_page) && $active_page == 'hierarki') ? 'active' : ''; ?>">
+            <a href="/inventory_mesin/hierarki.php" class="<?= (basename($_SERVER['PHP_SELF']) == 'hierarki.php') ? 'active' : ''; ?>">
                 <i class="bi bi-diagram-3 me-2"></i> Daftar Mesin
             </a>
 
-            <a href="/inventory_mesin/mesin/index.php" class="<?= ($current_dir == 'mesin') ? 'active' : '' ?>">
+            <!-- SECTION MASTER DATA -->
+            <div class="px-3 py-2 text-muted text-uppercase fw-bold" style="font-size: 10px; letter-spacing: 0.5px;">Master Data</div>
+
+            <a href="/inventory_mesin/master/area.php" class="<?= (basename($_SERVER['PHP_SELF']) == 'area.php') ? 'active' : '' ?>">
+                <i class="bi bi-geo-alt"></i>
+                Data Area
+            </a>
+
+            <a href="/inventory_mesin/master/jenis_mesin.php" class="<?= (basename($_SERVER['PHP_SELF']) == 'jenis_mesin.php') ? 'active' : '' ?>">
+                <i class="bi bi-grid"></i>
+                Jenis Mesin
+            </a>
+
+            <a href="/inventory_mesin/mesin/index.php" class="<?= (strpos($_SERVER['REQUEST_URI'], '/mesin/') !== false) ? 'active' : '' ?>">
                 <i class="bi bi-building"></i>
                 Data Mesin
             </a>
 
-            <a href="/inventory_mesin/sub_mesin/index.php" class="<?= ($current_dir == 'sub_mesin') ? 'active' : '' ?>">
+            <a href="/inventory_mesin/sub_mesin/index.php" class="<?= (strpos($_SERVER['REQUEST_URI'], '/sub_mesin/') !== false) ? 'active' : '' ?>">
                 <i class="bi bi-diagram-3"></i>
                 Sub Mesin
             </a>
 
-            <a href="/inventory_mesin/komponen/index.php" class="<?= ($current_dir == 'komponen') ? 'active' : '' ?>">
+            <a href="/inventory_mesin/komponen/index.php" class="<?= (strpos($_SERVER['REQUEST_URI'], '/komponen/') !== false) ? 'active' : '' ?>">
                 <i class="bi bi-cpu"></i>
                 Data Komponen
             </a>
 
-            <a href="/inventory_mesin/maintenance/index.php" class="<?= ($current_dir == 'maintenance') ? 'active' : '' ?>">
+            <!-- SECTION TRANSAKSI & LAPORAN -->
+            <div class="px-3 py-2 text-muted text-uppercase fw-bold mt-2" style="font-size: 10px; letter-spacing: 0.5px;">Transaksi & Lainnya</div>
+
+            <a href="/inventory_mesin/maintenance/index.php" class="<?= (strpos($_SERVER['REQUEST_URI'], '/maintenance/') !== false) ? 'active' : '' ?>">
                 <i class="bi bi-tools"></i>
                 Maintenance
             </a>
 
-            <a href="/inventory_mesin/laporan/index.php" class="<?= ($current_dir == 'laporan') ? 'active' : '' ?>">
+            <a href="/inventory_mesin/laporan/index.php" class="<?= (strpos($_SERVER['REQUEST_URI'], '/laporan/') !== false) ? 'active' : '' ?>">
                 <i class="bi bi-file-earmark-text"></i>
                 Laporan
             </a>
 
         </nav>
-
     </aside>
 
     <!-- Main Content Wrapper Start -->

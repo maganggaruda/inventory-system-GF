@@ -19,13 +19,26 @@ $current_page = $_SERVER['REQUEST_URI'];
       <span>Daftar Mesin</span>
     </a>
 
+    <!-- MENU MASTER DATA -->
+    <div class="sidebar-heading text-muted px-3 py-2 text-uppercase fs-7" style="font-size: 11px; letter-spacing: 0.5px;">Master Data</div>
+
+    <a href="/inventory_mesin/master/area.php" class="nav-item-link <?= (strpos($current_page, '/master/area.php') !== false) ? 'active' : ''; ?>">
+      <i class="bi bi-geo-alt"></i>
+      <span>Data Area</span>
+    </a>
+
+    <a href="/inventory_mesin/master/jenis_mesin.php" class="nav-item-link <?= (strpos($current_page, '/master/jenis_mesin.php') !== false) ? 'active' : ''; ?>">
+      <i class="bi bi-grid"></i>
+      <span>Jenis Mesin</span>
+    </a>
+
     <a href="/inventory_mesin/mesin/index.php" class="nav-item-link <?= (strpos($current_page, '/mesin/') !== false) ? 'active' : ''; ?>">
       <i class="bi bi-building"></i>
       <span>Data Mesin</span>
     </a>
 
     <a href="/inventory_mesin/sub_mesin/index.php" class="nav-item-link <?= (strpos($current_page, '/sub_mesin/') !== false) ? 'active' : ''; ?>">
-      <i class="bi bi-diagram-3"></i>
+      <i class="bi bi-diagram-3-fill"></i>
       <span>Sub Mesin</span>
     </a>
 
@@ -33,6 +46,9 @@ $current_page = $_SERVER['REQUEST_URI'];
       <i class="bi bi-cpu"></i>
       <span>Data Komponen</span>
     </a>
+
+    <!-- MENU TRANSAKSI & LAPORAN -->
+    <div class="sidebar-heading text-muted px-3 py-2 text-uppercase fs-7" style="font-size: 11px; letter-spacing: 0.5px;">Transaksi & Lainnya</div>
 
     <a href="/inventory_mesin/maintenance/index.php" class="nav-item-link <?= (strpos($current_page, '/maintenance/') !== false) ? 'active' : ''; ?>">
       <i class="bi bi-tools"></i>

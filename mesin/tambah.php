@@ -4,10 +4,11 @@ include "../koneksi.php";
 $error = "";
 
 if (isset($_POST['simpan'])) {
-    $serial_number = trim($_POST['serial_number']);
-    $nama_mesin    = trim($_POST['nama_mesin']);
-    $lokasi        = trim($_POST['lokasi']);
-    $keterangan    = trim($_POST['keterangan']);
+    $serial_number  = trim($_POST['serial_number']);
+    $nama_mesin     = trim($_POST['nama_mesin']);
+    $id_area        = intval($_POST['id_area']); // <-- Tambahkan penangkapan id_area
+    $id_jenis_mesin = intval($_POST['id_jenis_mesin']);
+    $keterangan     = trim($_POST['keterangan']);
     
     // Logika Handling Upload Gambar
     $nama_gambar = NULL;
@@ -22,11 +23,9 @@ if (isset($_POST['simpan'])) {
 
         if (in_array($fileExtension, $allowedExtensions)) {
             if ($fileSize <= 2 * 1024 * 1024) { // Maksimal 2MB
-                // Buat nama unik agar file tidak saling tumpang tindih
                 $nama_gambar = "mesin_" . time() . "_" . uniqid() . "." . $fileExtension;
                 $targetDir   = "../uploads/mesin/";
                 
-                // Buat folder otomatis jika belum ada
                 if (!is_dir($targetDir)) {
                     mkdir($targetDir, 0777, true);
                 }
@@ -46,12 +45,15 @@ if (isset($_POST['simpan'])) {
 
     if (empty($nama_mesin)) {
         $error = "Nama Mesin wajib diisi!";
+    } elseif (empty($id_area) || empty($id_jenis_mesin)) {
+        $error = "Area dan Jenis Mesin wajib dipilih!";
     }
 
     // Jika tidak ada error validasi upload/form, simpan ke database
     if (empty($error)) {
-        $stmt = mysqli_prepare($conn, "INSERT INTO mesin (serial_number, nama_mesin, lokasi, keterangan, gambar) VALUES (?, ?, ?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, "sssss", $serial_number, $nama_mesin, $lokasi, $keterangan, $nama_gambar);
+        // Pastikan tabel mesin memiliki kolom id_area, jika belum jalankan ALTER TABLE untuk id_area
+        $stmt = mysqli_prepare($conn, "INSERT INTO mesin (serial_number, nama_mesin, id_area, id_jenis_mesin, keterangan, gambar) VALUES (?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "ssiiss", $serial_number, $nama_mesin, $id_area, $id_jenis_mesin, $keterangan, $nama_gambar);
 
         if (mysqli_stmt_execute($stmt)) {
             header("Location: index.php");
@@ -112,9 +114,26 @@ include "../template/header.php";
             <div class="form-text mt-1 style-subtext">Nama resmi atau sebutan unit mesin.</div>
           </div>
 
-          <div class="col-12">
-            <label class="form-label fw-semibold text-dark small mb-1">Lokasi Area</label>
-            <input type="text" name="lokasi" class="form-control form-control-sm" placeholder="Contoh: Gedung A - Area Produksi Line 1" value="<?= isset($_POST['lokasi']) ? htmlspecialchars($_POST['lokasi']) : '' ?>">
+          <!-- Dropdown Hierarki Area & Jenis Mesin -->
+          <div class="col-md-6">
+            <label class="form-label fw-semibold text-dark small mb-1">Area Bagian <span class="text-danger">*</span></label>
+            <select name="id_area" id="id_area" class="form-select form-select-sm" required>
+                <option value="">-- Pilih Area --</option>
+                <?php
+                $q_area = mysqli_query($conn, "SELECT * FROM area_bagian ORDER BY nama_area ASC");
+                while ($a = mysqli_fetch_assoc($q_area)) {
+                    $selected = (isset($_POST['id_area']) && $_POST['id_area'] == $a['id']) ? 'selected' : '';
+                    echo "<option value='".$a['id']."' ".$selected.">".$a['nama_area']."</option>";
+                }
+                ?>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-semibold text-dark small mb-1">Jenis Mesin <span class="text-danger">*</span></label>
+            <select name="id_jenis_mesin" id="id_jenis_mesin" class="form-select form-select-sm" required disabled>
+                <option value="">-- Pilih Jenis Mesin --</option>
+            </select>
           </div>
 
           <!-- Field Tambahan Upload Gambar -->
@@ -151,5 +170,40 @@ include "../template/header.php";
     color: #64748b;
   }
 </style>
+
+<!-- Script AJAX untuk Dropdown Bertingkat -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function(){
+    function loadJenisMesin(id_area, selected_jenis = '') {
+        if(id_area != ""){
+            $.ajax({
+                url: '../master/get_jenis_mesin.php',
+                method: 'GET',
+                data: {id_area: id_area},
+                success: function(data){
+                    $('#id_jenis_mesin').html(data).prop('disabled', false);
+                    if(selected_jenis != '') {
+                        $('#id_jenis_mesin').val(selected_jenis);
+                    }
+                }
+            });
+        } else {
+            $('#id_jenis_mesin').html('<option value="">-- Pilih Jenis Mesin --</option>').prop('disabled', true);
+        }
+    }
+
+    var initialArea = $('#id_area').val();
+    var oldJenisMesin = "<?= isset($_POST['id_jenis_mesin']) ? $_POST['id_jenis_mesin'] : '' ?>";
+    if(initialArea != "") {
+        loadJenisMesin(initialArea, oldJenisMesin);
+    }
+
+    $('#id_area').change(function(){
+        var id_area = $(this).val();
+        loadJenisMesin(id_area);
+    });
+});
+</script>
 
 <?php include "../template/footer.php"; ?>

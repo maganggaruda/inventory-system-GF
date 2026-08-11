@@ -63,10 +63,13 @@ m.nama_mesin
 FROM riwayat_maintenance rm
 
 LEFT JOIN komponen k
-ON rm.id_komponen=k.id
+ON rm.id_komponen = k.id
+
+LEFT JOIN sub_mesin sm
+ON k.id_sub_mesin = sm.id
 
 LEFT JOIN mesin m
-ON k.id_mesin=m.id
+ON sm.id_mesin = m.id
 
 ORDER BY rm.tanggal DESC
 LIMIT 5
@@ -86,10 +89,13 @@ m.nama_mesin
 
 FROM komponen k
 
-LEFT JOIN mesin m
-ON k.id_mesin=m.id
+LEFT JOIN sub_mesin sm
+ON k.id_sub_mesin = sm.id
 
-WHERE kondisi!='Baik'
+LEFT JOIN mesin m
+ON sm.id_mesin = m.id
+
+WHERE k.kondisi != 'Baik'
 
 ORDER BY k.id DESC
 
@@ -116,17 +122,18 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
                 </p>
             </div>
             <div class="col-lg-4 text-lg-end">
-    <span class="dashboard-date d-inline-flex align-items-center gap-2">
-        <i class="bi bi-calendar3"></i>
-        <span><?=date('d F Y')?></span>
-        <span class="border-start ps-2 ms-1 text-muted">
-            <i class="bi bi-clock me-1"></i><span id="jam-realtime">--:--:--</span> WIB
-        </span>
-    </span>
-</div>
+                <span class="dashboard-date d-inline-flex align-items-center gap-2">
+                    <i class="bi bi-calendar3"></i>
+                    <span><?=date('d F Y')?></span>
+                    <span class="border-start ps-2 ms-1 text-muted">
+                        <i class="bi bi-clock me-1"></i><span id="jam-realtime">--:--:--</span> WIB
+                    </span>
+                </span>
+            </div>
         </div>
     </div>
 
+    <!-- STATS BOX -->
     <div class="row g-4 mb-4">
         <div class="col-xl-3 col-md-6">
             <div class="stat-box blue">
@@ -178,6 +185,7 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
         </div>
     </div>
 
+    <!-- QUICK ACTION (Disesuaikan dengan folder master & transaksi) -->
     <div class="content-card mb-4">
         <div class="card-body-custom">
             <div class="d-flex justify-content-between align-items-center flex-wrap">
@@ -185,16 +193,22 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
                     <h5 class="fw-bold">
                         <i class="bi bi-lightning-charge-fill text-warning"></i> Quick Action
                     </h5>
-                    <p class="text-muted mb-0">Tambah data dengan cepat.</p>
+                    <p class="text-muted mb-0">Tambah data master atau transaksi dengan cepat.</p>
                 </div>
-                <div class="d-flex gap-2 mt-3 mt-lg-0">
-                    <a href="../mesin/tambah.php" class="btn btn-primary">
+                <div class="d-flex gap-2 mt-3 mt-lg-0 flex-wrap">
+                    <a href="../master/area.php" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-geo-alt"></i> Area
+                    </a>
+                    <a href="../master/jenis_mesin.php" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-grid"></i> Jenis Mesin
+                    </a>
+                    <a href="../mesin/tambah.php" class="btn btn-primary btn-sm">
                         <i class="bi bi-plus-circle"></i> Mesin
                     </a>
-                    <a href="../komponen/tambah.php" class="btn btn-primary">
+                    <a href="../komponen/tambah.php" class="btn btn-primary btn-sm">
                         <i class="bi bi-cpu"></i> Komponen
                     </a>
-                    <a href="../maintenance/tambah.php" class="btn btn-warning">
+                    <a href="../maintenance/tambah.php" class="btn btn-warning btn-sm">
                         <i class="bi bi-tools"></i> Maintenance
                     </a>
                 </div>
@@ -255,7 +269,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
                                     </td>
                                     <td><?=htmlspecialchars($m['tindakan'])?></td>
                                     <td class="text-center">
-                                        <!-- BADGE KLIK -->
                                         <button type="button" 
                                                 class="btn badge <?=$badge?> border-0 px-3 py-2 rounded-pill fw-semibold shadow-sm" 
                                                 data-bs-toggle="modal" 
@@ -300,8 +313,6 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
                                     <strong><?=htmlspecialchars($k['nama_bagian'])?></strong><br>
                                     <small class="text-muted"><?=htmlspecialchars($k['nama_mesin'])?></small>
                                 </div>
-
-                                <!-- BADGE KLIK -->
                                 <button type="button" 
                                         class="btn badge bg-danger border-0 px-3 py-2 rounded-pill fw-semibold shadow-sm" 
                                         data-bs-toggle="modal" 
@@ -323,8 +334,9 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
         </div>
     </div>
 
-</div> <!-- container-fluid -->
+</div>
 
+<!-- MODAL MAINTENANCE -->
 <?php foreach($data_maintenance_list as $m): ?>
 <div class="modal fade" id="modalStatusMaint<?=$m['id']?>" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -351,6 +363,8 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
     </div>
 </div>
 <?php endforeach; ?>
+
+<!-- MODAL KOMPONEN -->
 <?php foreach($data_komponen_list as $k): ?>
 <div class="modal fade" id="modalKondisiKomp<?=$k['id']?>" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -380,6 +394,7 @@ if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
 <?php endforeach; ?>
 
 <?php include "../template/footer.php"; ?>
+
 <script>
     function updateClock() {
         const now = new Date();

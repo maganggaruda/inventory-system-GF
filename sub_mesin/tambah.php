@@ -66,8 +66,7 @@ if (isset($_POST['simpan'])) {
 }
 
 // Ambil daftar Mesin Induk untuk Dropdown Relasi
-$q_mesin = mysqli_query($conn, "SELECT id, nama_mesin, lokasi FROM mesin ORDER BY nama_mesin ASC");
-
+$q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_mesin ASC");
 // Render Header setelah logika redirect diproses
 include "../template/header.php";
 ?>
@@ -112,7 +111,7 @@ include "../template/header.php";
               <option value="">-- Pilih Mesin --</option>
               <?php while ($m = mysqli_fetch_assoc($q_mesin)) : ?>
                 <option value="<?= $m['id']; ?>" <?= ($val_id_mesin == $m['id']) ? 'selected' : ''; ?>>
-                  <?= htmlspecialchars($m['nama_mesin']); ?> (<?= htmlspecialchars($m['lokasi'] ?: 'No Location'); ?>)
+                  <?= htmlspecialchars($m['nama_mesin']); ?>
                 </option>
               <?php endwhile; ?>
             </select>
