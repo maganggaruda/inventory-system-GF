@@ -3,13 +3,11 @@ include "../koneksi.php";
 
 $error = "";
 $val_id_mesin       = "";
-$val_serial_number  = "";
 $val_nama_sub_mesin = "";
 $val_keterangan     = "";
 
 if (isset($_POST['simpan'])) {
     $val_id_mesin       = intval($_POST['id_mesin'] ?? 0);
-    $val_serial_number  = trim($_POST['serial_number'] ?? '');
     $val_nama_sub_mesin = trim($_POST['nama_sub_mesin'] ?? '');
     $val_keterangan     = trim($_POST['keterangan'] ?? '');
 
@@ -53,8 +51,8 @@ if (isset($_POST['simpan'])) {
 
     // Jika Tidak Ada Error Validasi & Upload
     if (empty($error)) {
-        $stmt_insert = mysqli_prepare($conn, "INSERT INTO sub_mesin (id_mesin, serial_number, nama_sub_mesin, keterangan, gambar) VALUES (?, ?, ?, ?, ?)");
-        mysqli_stmt_bind_param($stmt_insert, "issss", $val_id_mesin, $val_serial_number, $val_nama_sub_mesin, $val_keterangan, $nama_gambar);
+        $stmt_insert = mysqli_prepare($conn, "INSERT INTO sub_mesin (id_mesin, nama_sub_mesin, keterangan, gambar) VALUES (?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt_insert, "isss", $val_id_mesin, $val_nama_sub_mesin, $val_keterangan, $nama_gambar);
 
         if (mysqli_stmt_execute($stmt_insert)) {
             mysqli_stmt_close($stmt_insert);
@@ -76,7 +74,7 @@ include "../template/header.php";
 
 <div class="container-fluid p-0">
 
-  <!-- HEADER (Lebar 100%) -->
+  <!-- HEADER -->
   <div class="dashboard-header mb-3 py-3 px-4">
     <div class="d-flex align-items-center gap-3">
       <a href="index.php" class="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 38px; height: 38px; flex-shrink: 0;">
@@ -89,7 +87,7 @@ include "../template/header.php";
     </div>
   </div>
 
-  <!-- FORM CARD (Lebar 100% Disamakan dengan Header) -->
+  <!-- FORM CARD -->
   <div class="content-card mb-3">
     <div class="card-header-custom py-2 px-3">
       <h6 class="card-title-custom m-0 fw-bold">
@@ -105,7 +103,6 @@ include "../template/header.php";
         </div>
       <?php endif; ?>
 
-      <!-- Form dengan multipart/form-data untuk upload foto -->
       <form method="POST" enctype="multipart/form-data">
         <div class="row g-3">
           <!-- MESIN INDUK -->
@@ -119,12 +116,6 @@ include "../template/header.php";
                 </option>
               <?php endwhile; ?>
             </select>
-          </div>
-
-          <!-- SERIAL NUMBER -->
-          <div class="col-md-6">
-            <label class="form-label fw-semibold text-dark small mb-1">Serial Number (SN)</label>
-            <input type="text" name="serial_number" class="form-control form-control-sm" value="<?= htmlspecialchars($val_serial_number) ?>" placeholder="Contoh: SUB-SN-2024-001">
           </div>
 
           <!-- NAMA SUB MESIN -->
