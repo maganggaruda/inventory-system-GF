@@ -16,7 +16,7 @@ $current_page = $_SERVER['REQUEST_URI'];
 
     <a href="/inventory_mesin/hierarki.php" class="nav-item-link <?= (basename($current_page) == 'hierarki.php') ? 'active' : ''; ?>">
       <i class="bi bi-diagram-3"></i>
-      <span>Hierarki Mesin</span>
+      <span>Daftar Mesin</span>
     </a>
 
     <a href="/inventory_mesin/mesin/index.php" class="nav-item-link <?= (strpos($current_page, '/mesin/') !== false) ? 'active' : ''; ?>">
