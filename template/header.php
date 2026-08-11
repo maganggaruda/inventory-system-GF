@@ -45,7 +45,7 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
             </a>
 
             <a href="/inventory_mesin/hierarki.php" class="nav-link <?= (isset($active_page) && $active_page == 'hierarki') ? 'active' : ''; ?>">
-                <i class="bi bi-diagram-3 me-2"></i> Hierarki Mesin
+                <i class="bi bi-diagram-3 me-2"></i> Daftar Mesin
             </a>
 
             <a href="/inventory_mesin/mesin/index.php" class="<?= ($current_dir == 'mesin') ? 'active' : '' ?>">
