@@ -2,9 +2,9 @@
 include "../koneksi.php";
 include "../template/header.php";
 
-$tgl_mulai   = isset($_GET['tgl_mulai']) ? $_GET['tgl_mulai'] : date('Y-m-01');
-$tgl_selesai = isset($_GET['tgl_selesai']) ? $_GET['tgl_selesai'] : date('Y-m-d');
-$jenis       = isset($_GET['jenis']) ? $_GET['jenis'] : 'maintenance';
+$tgl_mulai    = isset($_GET['tgl_mulai']) ? $_GET['tgl_mulai'] : '';
+$tgl_selesai  = isset($_GET['tgl_selesai']) ? $_GET['tgl_selesai'] : '';
+$jenis        = isset($_GET['jenis']) ? $_GET['jenis'] : 'maintenance';
 $id_mesin     = isset($_GET['id_mesin']) ? $_GET['id_mesin'] : '';
 $id_sub_mesin = isset($_GET['id_sub_mesin']) ? $_GET['id_sub_mesin'] : '';
 $cari_komp    = isset($_GET['cari_komponen']) ? trim($_GET['cari_komponen']) : '';
@@ -15,14 +15,23 @@ if ($jenis == 'maintenance') {
         SELECT rm.*, k.nama_bagian, m.serial_number, m.nama_mesin 
         FROM riwayat_maintenance rm
         LEFT JOIN komponen k ON rm.id_komponen = k.id
-        LEFT JOIN mesin m ON k.id_mesin = m.id
-        WHERE rm.tanggal BETWEEN ? AND ?
+        LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
+        LEFT JOIN mesin m ON sm.id_mesin = m.id
+        WHERE 1=1
     ";
-    $params = [$tgl_mulai, $tgl_selesai];
-    $types  = "ss";
+    $params = [];
+    $types  = "";
+
+    // Filter Tanggal Bersifat Opsional jika diisi
+    if (!empty($tgl_mulai) && !empty($tgl_selesai)) {
+        $query .= " AND rm.tanggal BETWEEN ? AND ?";
+        $params[] = $tgl_mulai;
+        $params[] = $tgl_selesai;
+        $types  .= "ss";
+    }
 
     if (!empty($id_mesin)) {
-        $query .= " AND k.id_mesin = ?";
+        $query .= " AND sm.id_mesin = ?";
         $params[] = $id_mesin;
         $types .= "i";
     }
@@ -40,22 +49,24 @@ if ($jenis == 'maintenance') {
     $query .= " ORDER BY rm.tanggal DESC";
 
     $stmt = mysqli_prepare($conn, $query);
-    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    if (!empty($params)) {
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    }
     mysqli_stmt_execute($stmt);
     $sql = mysqli_stmt_get_result($stmt);
 } else {
     $query = "
         SELECT k.*, m.nama_mesin, m.serial_number, sm.nama_sub_mesin
         FROM komponen k
-        LEFT JOIN mesin m ON k.id_mesin = m.id
         LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
+        LEFT JOIN mesin m ON sm.id_mesin = m.id
         WHERE 1=1
     ";
     $params = [];
     $types  = "";
 
     if (!empty($id_mesin)) {
-        $query .= " AND k.id_mesin = ?";
+        $query .= " AND sm.id_mesin = ?";
         $params[] = $id_mesin;
         $types .= "i";
     }

@@ -23,14 +23,14 @@ if (!$data) {
 
 if (isset($_POST['update'])) {
     $nama_area = trim($_POST['nama_area']);
+    $lokasi = trim($_POST['lokasi']);
 
-    if (empty($nama_area)) {
-        $error = "Nama Area / Bagian wajib diisi!";
+    if (empty($nama_area)) {$error = "Nama Area / Bagian wajib diisi!";
     }
 
     if (empty($error)) {
-        $stmt = mysqli_prepare($conn, "UPDATE area_bagian SET nama_area = ? WHERE id = ?");
-        mysqli_stmt_bind_param($stmt, "si", $nama_area, $id);
+        $stmt = mysqli_prepare($conn, "UPDATE area_bagian SET nama_area = ?, lokasi = ? WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, "ssi", $nama_area, $lokasi,$id);
 
         if (mysqli_stmt_execute($stmt)) {
             header("Location: area.php");
@@ -82,6 +82,12 @@ include "../template/header.php";
             <label class="form-label fw-semibold text-dark small mb-1">Nama Area / Bagian <span class="text-danger">*</span></label>
             <input type="text" name="nama_area" class="form-control form-control-sm" placeholder="Contoh: Gedung A - Area Produksi" value="<?= isset($_POST['nama_area']) ? htmlspecialchars($_POST['nama_area']) : htmlspecialchars($data['nama_area']) ?>" required>
             <div class="form-text mt-1 style-subtext">Nama lokasi atau bagian pabrik tempat mesin ditempatkan.</div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label fw-semibold text-dark small mb-1">Lokasi Area</label>
+            <input type="text" name="lokasi" class="form-control form-control-sm" placeholder="Contoh: Lantai 2, Zona Barat / Sektor B" value="<?= isset($_POST['lokasi']) ? htmlspecialchars($_POST['lokasi']) : htmlspecialchars($data['lokasi'] ?? '') ?>">
+            <div class="form-text mt-1 style-subtext">Keterangan detail posisi atau gedung spesifik area tersebut.</div>
           </div>
         </div>
 

@@ -3,17 +3,19 @@ include "../koneksi.php";
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-// Query mengambil data komponen beserta join ke mesin & sub_mesin
+// Query dengan JOIN lengkap ke area_bagian
 $stmt = mysqli_prepare($conn, "
     SELECT 
         k.*, 
         m.nama_mesin as nama_m, 
         m.serial_number as sn_mesin, 
-        m.lokasi as lokasi_m, 
-        sm.nama_sub_mesin as nama_s 
+        sm.nama_sub_mesin as nama_s,
+        ab.lokasi as lokasi_aktual
     FROM komponen k
-    LEFT JOIN mesin m ON k.id_mesin = m.id
     LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
+    LEFT JOIN mesin m ON sm.id_mesin = m.id
+    LEFT JOIN jenis_mesin jm ON m.id_jenis_mesin = jm.id
+    LEFT JOIN area_bagian ab ON jm.id_area = ab.id
     WHERE k.id = ?
 ");
 
@@ -30,7 +32,6 @@ if (!$d) {
 
 include "../template/header.php";
 
-// Penentuan Badge Kondisi
 $badgeKondisi = 'bg-success';
 if (($d['kondisi'] ?? '') == 'Dalam Perbaikan') {
     $badgeKondisi = 'bg-danger';
@@ -40,8 +41,6 @@ if (($d['kondisi'] ?? '') == 'Dalam Perbaikan') {
 ?>
 
 <div class="container-fluid p-0">
-
-  <!-- HEADER -->
   <div class="dashboard-header mb-3 py-3 px-4">
     <div class="d-flex align-items-center gap-3">
       <a href="index.php" class="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 38px; height: 38px; flex-shrink: 0;">
@@ -59,20 +58,14 @@ if (($d['kondisi'] ?? '') == 'Dalam Perbaikan') {
     </div>
   </div>
 
-  <!-- CONTENT CARD -->
   <div class="content-card mb-3">
     <div class="card-header-custom py-2 px-3">
-      <h6 class="card-title-custom m-0 fw-bold">
-        <i class="bi bi-info-circle me-2"></i>Rincian Data Komponen
-      </h6>
+      <h6 class="card-title-custom m-0 fw-bold"><i class="bi bi-info-circle me-2"></i>Rincian Data Komponen</h6>
     </div>
 
     <div class="card-body-custom p-4">
       <div class="row g-4">
-        
-        <!-- KOLOM FOTO & INFORMASI UTAMA -->
         <div class="col-lg-5 col-md-6">
-          <!-- Tampilan Foto Komponen -->
           <div class="text-center p-3 mb-3 bg-light rounded border">
             <?php 
               $gambar_path = "../uploads/komponen/" . ($d['gambar'] ?? '');
@@ -87,7 +80,6 @@ if (($d['kondisi'] ?? '') == 'Dalam Perbaikan') {
             <?php endif; ?>
           </div>
 
-          <!-- Tabel Ringkasan -->
           <table class="table table-borderless align-middle mb-0">
             <tr>
               <th width="140" class="text-muted fw-normal small">Nama Bagian</th>
@@ -95,19 +87,11 @@ if (($d['kondisi'] ?? '') == 'Dalam Perbaikan') {
             </tr>
             <tr>
               <th class="text-muted fw-normal small">SN Komponen</th>
-              <td>
-                <span class="badge bg-light text-dark border font-monospace fs-6">
-                  <i class="bi bi-barcode me-1"></i><?= htmlspecialchars(!empty($d['serial_number']) ? $d['serial_number'] : '-') ?>
-                </span>
-              </td>
+              <td><span class="badge bg-light text-dark border font-monospace fs-6"><i class="bi bi-barcode me-1"></i><?= htmlspecialchars(!empty($d['serial_number']) ? $d['serial_number'] : '-') ?></span></td>
             </tr>
             <tr>
               <th class="text-muted fw-normal small">SN Mesin Induk</th>
-              <td>
-                <span class="badge bg-light text-primary border font-monospace fs-6">
-                  <i class="bi bi-qr-code me-1"></i><?= htmlspecialchars(!empty($d['sn_mesin']) ? $d['sn_mesin'] : '-') ?>
-                </span>
-              </td>
+              <td><span class="badge bg-light text-primary border font-monospace fs-6"><i class="bi bi-qr-code me-1"></i><?= htmlspecialchars(!empty($d['sn_mesin']) ? $d['sn_mesin'] : '-') ?></span></td>
             </tr>
             <tr>
               <th class="text-muted fw-normal small">Kondisi</th>
@@ -127,12 +111,14 @@ if (($d['kondisi'] ?? '') == 'Dalam Perbaikan') {
             </tr>
             <tr>
               <th class="text-muted fw-normal small">Lokasi</th>
-              <td class="text-dark"><i class="bi bi-geo-alt text-danger me-1"></i><?= htmlspecialchars(!empty($d['lokasi']) ? $d['lokasi'] : ($d['lokasi_m'] ?? '-')) ?></td>
+              <td class="text-dark">
+                <i class="bi bi-geo-alt text-danger me-1"></i>
+                <?= htmlspecialchars(!empty($d['lokasi_aktual']) ? $d['lokasi_aktual'] : ($d['lokasi'] ?? '-')) ?>
+              </td>
             </tr>
           </table>
         </div>
 
-        <!-- KOLOM SPESIFIKASI TEKNIS -->
         <div class="col-lg-7 col-md-6 border-start-md ps-md-4">
           <h6 class="fw-bold text-primary mb-3 small"><i class="bi bi-cpu me-1"></i> SPESIFIKASI TEKNIS</h6>
           <table class="table table-sm table-borderless mb-0">
@@ -149,22 +135,18 @@ if (($d['kondisi'] ?? '') == 'Dalam Perbaikan') {
             <tr><th class="text-muted fw-normal small">IP Rating</th><td class="text-dark"><?= htmlspecialchars(!empty($d['ip_rating']) ? $d['ip_rating'] : '-') ?></td></tr>
           </table>
         </div>
-
       </div>
 
       <hr class="my-4 text-muted opacity-25">
 
-      <!-- CATATAN TAMBAHAN -->
       <div>
         <h6 class="fw-bold text-dark mb-2 small"><i class="bi bi-journal-text me-1"></i> Keterangan / Catatan Tambahan:</h6>
         <div class="p-3 bg-light rounded text-muted small border">
           <?= nl2br(htmlspecialchars(!empty($d['keterangan']) ? $d['keterangan'] : 'Tidak ada keterangan tambahan.')) ?>
         </div>
       </div>
-
     </div>
   </div>
-
 </div>
 
 <?php include "../template/footer.php"; ?>

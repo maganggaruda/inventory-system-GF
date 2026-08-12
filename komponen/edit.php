@@ -3,13 +3,14 @@ include "../koneksi.php";
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-// Ambil data komponen beserta informasi relasi sub_mesin, mesin, jenis_mesin, dan area
+// Perbaikan: Ambil data komponen lengkap beserta relasi area_bagian (ab.lokasi)
 $stmt_get = mysqli_prepare($conn, "
-    SELECT k.*, sm.id_mesin, m.id_jenis_mesin, jm.id_area 
+    SELECT k.*, sm.id_mesin, m.id_jenis_mesin, jm.id_area, ab.lokasi as lokasi_area
     FROM komponen k
     LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
     LEFT JOIN mesin m ON sm.id_mesin = m.id
     LEFT JOIN jenis_mesin jm ON m.id_jenis_mesin = jm.id
+    LEFT JOIN area_bagian ab ON jm.id_area = ab.id
     WHERE k.id = ?
 ");
 mysqli_stmt_bind_param($stmt_get, "i", $id);
@@ -26,123 +27,46 @@ if (!$d) {
 $error = "";
 
 if (isset($_POST['update'])) {
-    $id_area            = !empty($_POST['id_area']) ? intval($_POST['id_area']) : null;
-    $id_jenis_mesin     = !empty($_POST['id_jenis_mesin']) ? intval($_POST['id_jenis_mesin']) : null;
-    $id_mesin           = !empty($_POST['id_mesin']) ? intval($_POST['id_mesin']) : null;
-    $id_sub_mesin       = !empty($_POST['id_sub_mesin']) ? intval($_POST['id_sub_mesin']) : null;
+    $id_area        = !empty($_POST['id_area']) ? intval($_POST['id_area']) : null;
+    $id_sub_mesin   = !empty($_POST['id_sub_mesin']) ? intval($_POST['id_sub_mesin']) : null;
     
-    $mesin_str = "";
-    $sub_mesin_str = "";
-
-    // Ambil nama mesin jika id_mesin terisi
-    if ($id_mesin) {
-        $stmt_m = mysqli_prepare($conn, "SELECT nama_mesin FROM mesin WHERE id = ?");
-        mysqli_stmt_bind_param($stmt_m, "i", $id_mesin);
-        mysqli_stmt_execute($stmt_m);
-        $res_m = mysqli_stmt_get_result($stmt_m);
-        if ($rm = mysqli_fetch_assoc($res_m)) { 
-            $mesin_str = $rm['nama_mesin']; 
-        }
-        mysqli_stmt_close($stmt_m);
+    // Ambil string lokasi baru dari tabel area
+    $lokasi_str = "";
+    if ($id_area) {
+        $res_l = mysqli_query($conn, "SELECT lokasi FROM area_bagian WHERE id = $id_area");
+        if ($row_l = mysqli_fetch_assoc($res_l)) $lokasi_str = $row_l['lokasi'];
     }
 
-    // Ambil nama sub mesin jika id_sub_mesin terisi
+    // Ambil nama mesin & sub_mesin agar konsisten
+    $mesin_str = ""; $sub_mesin_str = "";
     if ($id_sub_mesin) {
-        $stmt_s = mysqli_prepare($conn, "SELECT nama_sub_mesin FROM sub_mesin WHERE id = ?");
-        mysqli_stmt_bind_param($stmt_s, "i", $id_sub_mesin);
-        mysqli_stmt_execute($stmt_s);
-        $res_s = mysqli_stmt_get_result($stmt_s);
-        if ($rs = mysqli_fetch_assoc($res_s)) { 
-            $sub_mesin_str = $rs['nama_sub_mesin']; 
+        $res_s = mysqli_query($conn, "SELECT sm.nama_sub_mesin, m.nama_mesin FROM sub_mesin sm JOIN mesin m ON sm.id_mesin = m.id WHERE sm.id = $id_sub_mesin");
+        if ($row_s = mysqli_fetch_assoc($res_s)) {
+            $sub_mesin_str = $row_s['nama_sub_mesin'];
+            $mesin_str = $row_s['nama_mesin'];
         }
-        mysqli_stmt_close($stmt_s);
     }
 
-    $serial_number      = trim($_POST['serial_number'] ?? '');
-    $nama_bagian        = trim($_POST['nama_bagian'] ?? '');
-    $kategori           = trim($_POST['kategori'] ?? '');
-    $brand              = trim($_POST['brand'] ?? '');
-    $tipe               = trim($_POST['tipe'] ?? '');
-    $part_number        = trim($_POST['part_number'] ?? '');
-    $daya               = trim($_POST['daya'] ?? '');
-    $io_address         = trim($_POST['io_address'] ?? '');
-    $input_voltage      = trim($_POST['input_voltage'] ?? '');
-    $frekuensi_input    = trim($_POST['frekuensi_input'] ?? '');
-    $arus_input         = trim($_POST['arus_input'] ?? '');
-    $output             = trim($_POST['output'] ?? '');
-    $frekuensi_output   = trim($_POST['frekuensi_output'] ?? '');
-    $ip_rating          = trim($_POST['ip_rating'] ?? '');
-    $lokasi             = trim($_POST['lokasi'] ?? '');
-    $kondisi            = trim($_POST['kondisi'] ?? 'Baik');
-    $keterangan         = trim($_POST['keterangan'] ?? '');
+    $sql_update = "UPDATE komponen SET serial_number=?, id_sub_mesin=?, mesin=?, sub_mesin=?, nama_bagian=?, kategori=?, brand=?, tipe=?, part_number=?, daya=?, io_address=?, input_voltage=?, frekuensi_input=?, arus_input=?, output=?, frekuensi_output=?, ip_rating=?, lokasi=?, kondisi=?, keterangan=? WHERE id=?";
 
-    if (empty($nama_bagian)) {
-        $error = "Nama Bagian wajib diisi!";
+    $stmt_up = mysqli_prepare($conn, $sql_update);
+    mysqli_stmt_bind_param($stmt_up, "sissssssssssssssssssi", 
+        $_POST['serial_number'], $id_sub_mesin, $mesin_str, $sub_mesin_str, $_POST['nama_bagian'], 
+        $_POST['kategori'], $_POST['brand'], $_POST['tipe'], $_POST['part_number'], $_POST['daya'], 
+        $_POST['io_address'], $_POST['input_voltage'], $_POST['frekuensi_input'], $_POST['arus_input'], 
+        $_POST['output'], $_POST['frekuensi_output'], $_POST['ip_rating'], $lokasi_str, $_POST['kondisi'], $_POST['keterangan'], $id
+    );
+
+    if (mysqli_stmt_execute($stmt_up)) {
+        header("Location: index.php");
+        exit;
     } else {
-        // Query UPDATE menggunakan Prepared Statement
-        $sql_update = "UPDATE komponen SET 
-                        serial_number = ?,
-                        id_sub_mesin = ?,
-                        mesin = ?,
-                        sub_mesin = ?,
-                        nama_bagian = ?,
-                        kategori = ?,
-                        brand = ?,
-                        tipe = ?,
-                        part_number = ?,
-                        daya = ?,
-                        io_address = ?,
-                        input_voltage = ?,
-                        frekuensi_input = ?,
-                        arus_input = ?,
-                        output = ?,
-                        frekuensi_output = ?,
-                        ip_rating = ?,
-                        lokasi = ?,
-                        kondisi = ?,
-                        keterangan = ?
-                       WHERE id = ?";
-
-        $stmt_up = mysqli_prepare($conn, $sql_update);
-        mysqli_stmt_bind_param(
-            $stmt_up, 
-            "sissssssssssssssssssi",
-            $serial_number,
-            $id_sub_mesin,
-            $mesin_str,
-            $sub_mesin_str,
-            $nama_bagian,
-            $kategori,
-            $brand,
-            $tipe,
-            $part_number,
-            $daya,
-            $io_address,
-            $input_voltage,
-            $frekuensi_input,
-            $arus_input,
-            $output,
-            $frekuensi_output,
-            $ip_rating,
-            $lokasi,
-            $kondisi,
-            $keterangan,
-            $id
-        );
-
-        if (mysqli_stmt_execute($stmt_up)) {
-            mysqli_stmt_close($stmt_up);
-            header("Location: index.php");
-            exit;
-        } else {
-            $error = "Gagal memperbarui data: " . mysqli_error($conn);
-        }
-        mysqli_stmt_close($stmt_up);
+        $error = "Gagal memperbarui data: " . mysqli_error($conn);
     }
 }
 
-// Ambil daftar Area untuk dropdown pertama
-$q_area = mysqli_query($conn, "SELECT id, nama_area FROM area_bagian ORDER BY nama_area ASC");
+// Ambil data unik Lokasi
+$q_lokasi = mysqli_query($conn, "SELECT DISTINCT lokasi FROM area_bagian WHERE lokasi IS NOT NULL ORDER BY lokasi ASC");
 
 include "../template/header.php";
 ?>
@@ -186,7 +110,7 @@ include "../template/header.php";
             <input type="text" name="serial_number" class="form-control form-control-sm" value="<?= htmlspecialchars($d['serial_number'] ?? '') ?>">
           </div>
           <div class="col-md-5">
-            <label class="form-label fw-semibold text-dark small mb-1">Nama Bagian <span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold text-dark small mb-1">Nama Komponen<span class="text-danger">*</span></label>
             <input type="text" name="nama_bagian" class="form-control form-control-sm" value="<?= htmlspecialchars($d['nama_bagian'] ?? '') ?>" required>
           </div>
           <div class="col-md-4">
@@ -194,16 +118,22 @@ include "../template/header.php";
             <input type="text" name="kategori" class="form-control form-control-sm" value="<?= htmlspecialchars($d['kategori'] ?? '') ?>">
           </div>
           
-          <!-- HIERARKI DROPDOWN (Area -> Jenis Mesin -> Mesin -> Sub Mesin) -->
+          <!-- HIERARKI DROPDOWN (Lokasi -> Area -> Jenis Mesin -> Mesin -> Sub Mesin) -->
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-dark small mb-1">Lokasi</label>
+            <select id="form_lokasi" class="form-select form-select-sm" onchange="loadAreaByLokasi(this.value)">
+              <option value="">-- Pilih Lokasi --</option>
+              <?php while ($l = mysqli_fetch_assoc($q_lokasi)) : ?>
+                <option value="<?= htmlspecialchars($l['lokasi']) ?>" <?= ($l['lokasi'] == ($d['lokasi_area'] ?? '')) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($l['lokasi']) ?>
+                </option>
+              <?php endwhile; ?>
+            </select>
+          </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold text-dark small mb-1">Area / Bagian</label>
             <select name="id_area" id="form_area" class="form-select form-select-sm" onchange="loadJenisMesin(this.value)">
               <option value="">-- Pilih Area --</option>
-              <?php while ($a = mysqli_fetch_assoc($q_area)) : ?>
-                <option value="<?= $a['id'] ?>" <?= ($a['id'] == $d['id_area']) ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($a['nama_area']) ?>
-                </option>
-              <?php endwhile; ?>
             </select>
           </div>
           <div class="col-md-3">
@@ -223,11 +153,6 @@ include "../template/header.php";
             <select name="id_sub_mesin" id="form_sub_mesin" class="form-select form-select-sm">
               <option value="">-- Pilih Sub Mesin --</option>
             </select>
-          </div>
-
-          <div class="col-md-12">
-            <label class="form-label fw-semibold text-dark small mb-1">Lokasi Penempatan</label>
-            <input type="text" name="lokasi" class="form-control form-control-sm" value="<?= htmlspecialchars($d['lokasi'] ?? '') ?>">
           </div>
         </div>
 
@@ -315,6 +240,30 @@ include "../template/header.php";
 </div>
 
 <script>
+function loadAreaByLokasi(lokasi, selectedArea = '') {
+  const areaSelect = document.getElementById('form_area');
+  const jenisSelect = document.getElementById('form_jenis_mesin');
+  const mesinSelect = document.getElementById('form_mesin');
+  const subSelect = document.getElementById('form_sub_mesin');
+
+  areaSelect.innerHTML = '<option value="">-- Pilih Area --</option>';
+  jenisSelect.innerHTML = '<option value="">-- Pilih Jenis Mesin --</option>';
+  mesinSelect.innerHTML = '<option value="">-- Pilih Mesin --</option>';
+  subSelect.innerHTML = '<option value="">-- Pilih Sub Mesin --</option>';
+
+  if (!lokasi) return;
+
+  fetch('get_area.php?lokasi=' + encodeURIComponent(lokasi))
+    .then(response => response.text())
+    .then(data => {
+      areaSelect.innerHTML = data;
+      if (selectedArea !== '') {
+        areaSelect.value = selectedArea;
+      }
+    })
+    .catch(err => console.error('Gagal memuat Area:', err));
+}
+
 function loadJenisMesin(id_area, selectedJenis = '') {
   const jenisSelect = document.getElementById('form_jenis_mesin');
   const mesinSelect = document.getElementById('form_mesin');
@@ -374,20 +323,30 @@ function loadSubMesinForm(id_mesin, selectedSub = '') {
     .catch(err => console.error('Gagal memuat Sub Mesin:', err));
 }
 
-// Inisialisasi otomatis saat halaman dimuat (untuk mengisi nilai awal form edit)
+// Inisialisasi otomatis saat halaman dimuat (untuk mengisi nilai awal form edit berantai)
 document.addEventListener("DOMContentLoaded", function() {
-  const initArea  = "<?= $d['id_area'] ?? '' ?>";
-  const initJenis = "<?= $d['id_jenis_mesin'] ?? '' ?>";
-  const initMesin = "<?= $d['id_mesin'] ?? '' ?>";
-  const initSub   = "<?= $d['id_sub_mesin'] ?? '' ?>";
+  const initLokasi = "<?= $d['lokasi_area'] ?? '' ?>";
+  const initArea   = "<?= $d['id_area'] ?? '' ?>";
+  const initJenis  = "<?= $d['id_jenis_mesin'] ?? '' ?>";
+  const initMesin  = "<?= $d['id_mesin'] ?? '' ?>";
+  const initSub    = "<?= $d['id_sub_mesin'] ?? '' ?>";
 
-  if (initArea !== "") {
-    loadJenisMesin(initArea, initJenis);
-    if (initJenis !== "") {
-      loadMesin(initJenis, initMesin);
-      if (initMesin !== "") {
-        loadSubMesinForm(initMesin, initSub);
-      }
+  if (initLokasi !== "") {
+    loadAreaByLokasi(initLokasi, initArea);
+    if (initArea !== "") {
+      setTimeout(() => {
+        loadJenisMesin(initArea, initJenis);
+        if (initJenis !== "") {
+          setTimeout(() => {
+            loadMesin(initJenis, initMesin);
+            if (initMesin !== "") {
+              setTimeout(() => {
+                loadSubMesinForm(initMesin, initSub);
+              }, 150);
+            }
+          }, 150);
+        }
+      }, 150);
     }
   }
 });

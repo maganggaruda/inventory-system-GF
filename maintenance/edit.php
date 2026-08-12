@@ -123,12 +123,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_maintenance'])
     }
 }
 
-// Ambil data komponen beserta mesin & sub-mesin untuk dropdown
+// Ambil data komponen beserta mesin & sub-mesin untuk dropdown (Disesuaikan relasinya)
 $q_komponen = mysqli_query($conn, "
-    SELECT k.*, m.nama_mesin, sm.nama_sub_mesin 
+    SELECT 
+        k.*, 
+        m.nama_mesin, 
+        sm.nama_sub_mesin 
     FROM komponen k 
-    LEFT JOIN mesin m ON k.id_mesin = m.id 
     LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id 
+    LEFT JOIN mesin m ON sm.id_mesin = m.id 
     ORDER BY k.nama_bagian ASC
 ");
 
@@ -421,7 +424,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
             $('#btn-remove-foto').on('click', function() {
                 $('#input-foto').val('');
-                // Jika ingin mereset preview kembali ke kosong (atau membiarkan foto lama jika batal ganti)
                 $('#preview-container').addClass('d-none');
                 $('#image-preview').attr('src', '');
             });

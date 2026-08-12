@@ -5,9 +5,10 @@ include "../template/header.php";
 $keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 
 if (!empty($keyword)) {
-    $stmt = mysqli_prepare($conn, "SELECT * FROM area_bagian WHERE nama_area LIKE ? ORDER BY id DESC");
+    // Pencarian berdasarkan nama area atau lokasi
+    $stmt = mysqli_prepare($conn, "SELECT * FROM area_bagian WHERE nama_area LIKE ? OR lokasi LIKE ? ORDER BY id DESC");
     $kw = "%" . $keyword . "%";
-    mysqli_stmt_bind_param($stmt, "s", $kw);
+    mysqli_stmt_bind_param($stmt, "ss", $kw, $kw);
     mysqli_stmt_execute($stmt);
     $sql = mysqli_stmt_get_result($stmt);
 } else {
@@ -40,7 +41,7 @@ if (!empty($keyword)) {
             <span class="input-group-text bg-light text-muted border-end-0">
               <i class="bi bi-search"></i>
             </span>
-            <input type="text" name="keyword" class="form-control border-start-0 ps-0" placeholder="Cari nama area bagian..." value="<?= htmlspecialchars($keyword) ?>">
+            <input type="text" name="keyword" class="form-control border-start-0 ps-0" placeholder="Cari nama area atau lokasi..." value="<?= htmlspecialchars($keyword) ?>">
           </div>
         </div>
         <div class="col-md-2 d-flex gap-2">
@@ -74,6 +75,7 @@ if (!empty($keyword)) {
           <tr>
             <th width="60" class="text-center">No</th>
             <th>Nama Area / Bagian</th>
+            <th>Lokasi Area</th>
             <th width="150" class="text-center">Aksi</th>
           </tr>
         </thead>
@@ -87,6 +89,9 @@ if (!empty($keyword)) {
                 <td class="text-center fw-medium text-muted"><?= $no++ ?></td>
                 <td>
                   <strong class="text-dark"><?= htmlspecialchars($d['nama_area'] ?? '-') ?></strong>
+                </td>
+                <td>
+                  <span class="text-muted"><i class="bi bi-pin-map me-1 text-danger"></i><?= htmlspecialchars($d['lokasi'] ?? '-') ?></span>
                 </td>
                 <td class="text-center">
                   <div class="btn-group btn-group-sm" role="group">
@@ -104,7 +109,7 @@ if (!empty($keyword)) {
           else :
             ?>
             <tr>
-              <td colspan="3" class="text-center py-5">
+              <td colspan="4" class="text-center py-5">
                 <div class="text-muted">
                   <i class="bi bi-inbox display-6 d-block mb-2 text-secondary"></i>
                   <p class="mb-0 fw-medium">Data area tidak ditemukan.</p>

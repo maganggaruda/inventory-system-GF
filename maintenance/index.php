@@ -7,11 +7,11 @@ $filter_sub_mesin = isset($_GET['sub_mesin']) ? $_GET['sub_mesin'] : '';
 $filter_status    = isset($_GET['status']) ? $_GET['status'] : '';
 $keyword          = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 
-// Build Query Condition
+// Build Query Condition (Perbaikan: Hubungkan id_mesin lewat sub_mesin -> sm.id_mesin)
 $where_clauses = [];
 
 if (!empty($filter_mesin)) {
-    $where_clauses[] = "k.id_mesin = '" . mysqli_real_escape_string($conn, $filter_mesin) . "'";
+    $where_clauses[] = "sm.id_mesin = '" . mysqli_real_escape_string($conn, $filter_mesin) . "'";
 }
 if (!empty($filter_sub_mesin)) {
     $where_clauses[] = "k.id_sub_mesin = '" . mysqli_real_escape_string($conn, $filter_sub_mesin) . "'";
@@ -29,7 +29,7 @@ if (count($where_clauses) > 0) {
     $where_sql = "WHERE " . implode(" AND ", $where_clauses);
 }
 
-// Fetch Data Maintenance
+// Fetch Data Maintenance (Perbaikan: JOIN mesin lewat sub_mesin)
 $query_maint = mysqli_query($conn, "
     SELECT 
         rm.*,
@@ -39,8 +39,8 @@ $query_maint = mysqli_query($conn, "
         sm.nama_sub_mesin
     FROM riwayat_maintenance rm
     LEFT JOIN komponen k ON rm.id_komponen = k.id
-    LEFT JOIN mesin m ON k.id_mesin = m.id
     LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
+    LEFT JOIN mesin m ON sm.id_mesin = m.id
     $where_sql
     ORDER BY rm.tanggal DESC
 ");
