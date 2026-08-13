@@ -1,414 +1,1852 @@
 <?php
 include "../koneksi.php";
 
+/* =========================================================
+   UPDATE STATUS MAINTENANCE
+========================================================= */
 if (isset($_POST['update_status_maintenance'])) {
+
     $id_maint = intval($_POST['id_maintenance']);
     $status_baru = mysqli_real_escape_string($conn, $_POST['status']);
-    
-    mysqli_query($conn, "UPDATE riwayat_maintenance SET status = '$status_baru' WHERE id = $id_maint");
-    
+
+    mysqli_query(
+        $conn,
+        "UPDATE riwayat_maintenance 
+         SET status = '$status_baru' 
+         WHERE id = $id_maint"
+    );
+
+    /* Jika maintenance selesai -> kondisi komponen menjadi Baik */
     if ($status_baru == 'Selesai') {
-        $get_maint = mysqli_query($conn, "SELECT id_komponen FROM riwayat_maintenance WHERE id = $id_maint");
+
+        $get_maint = mysqli_query(
+            $conn,
+            "SELECT id_komponen 
+             FROM riwayat_maintenance 
+             WHERE id = $id_maint"
+        );
+
         if ($data_maint = mysqli_fetch_assoc($get_maint)) {
-            $id_komp = $data_maint['id_komponen'];
-            if ($id_komp) {
-                mysqli_query($conn, "UPDATE komponen SET kondisi = 'Baik' WHERE id = $id_komp");
+
+            $id_komp = intval($data_maint['id_komponen']);
+
+            if ($id_komp > 0) {
+                mysqli_query(
+                    $conn,
+                    "UPDATE komponen 
+                     SET kondisi = 'Baik' 
+                     WHERE id = $id_komp"
+                );
             }
         }
     }
-    
+
     header("Location: index.php");
     exit;
 }
 
+
+/* =========================================================
+   UPDATE KONDISI KOMPONEN
+========================================================= */
 if (isset($_POST['update_kondisi_komponen'])) {
+
     $id_komp = intval($_POST['id_komponen']);
     $kondisi_baru = mysqli_real_escape_string($conn, $_POST['kondisi']);
-    
-    mysqli_query($conn, "UPDATE komponen SET kondisi = '$kondisi_baru' WHERE id = $id_komp");
+
+    mysqli_query(
+        $conn,
+        "UPDATE komponen 
+         SET kondisi = '$kondisi_baru' 
+         WHERE id = $id_komp"
+    );
+
     header("Location: index.php");
     exit;
 }
 
+
+/* =========================================================
+   HEADER
+========================================================= */
 include "../template/header.php";
 
+
+/* =========================================================
+   STATISTIK DASHBOARD
+========================================================= */
+
 $d_total_mesin = mysqli_fetch_assoc(
-    mysqli_query($conn,"SELECT COUNT(*) total FROM mesin")
+    mysqli_query(
+        $conn,
+        "SELECT COUNT(*) AS total FROM mesin"
+    )
 )['total'];
 
 $d_total_komponen = mysqli_fetch_assoc(
-    mysqli_query($conn,"SELECT COUNT(*) total FROM komponen")
+    mysqli_query(
+        $conn,
+        "SELECT COUNT(*) AS total FROM komponen"
+    )
 )['total'];
 
 $d_komponen_perhatian = mysqli_fetch_assoc(
-    mysqli_query($conn,"SELECT COUNT(*) total FROM komponen WHERE kondisi!='Baik'")
+    mysqli_query(
+        $conn,
+        "SELECT COUNT(*) AS total 
+         FROM komponen 
+         WHERE kondisi != 'Baik'"
+    )
 )['total'];
 
 $bulan_ini = date('Y-m');
 
 $d_maint_bulan_ini = mysqli_fetch_assoc(
-    mysqli_query($conn,"
-    SELECT COUNT(*) total
-    FROM riwayat_maintenance
-    WHERE DATE_FORMAT(tanggal,'%Y-%m')='$bulan_ini'
-    ")
+    mysqli_query(
+        $conn,
+        "SELECT COUNT(*) AS total
+         FROM riwayat_maintenance
+         WHERE DATE_FORMAT(tanggal,'%Y-%m')='$bulan_ini'"
+    )
 )['total'];
 
-$q_maintenance = mysqli_query($conn,"
-SELECT
-rm.*,
-k.nama_bagian,
-m.nama_mesin
 
-FROM riwayat_maintenance rm
+/* =========================================================
+   JUMLAH AREA
+========================================================= */
 
-LEFT JOIN komponen k
-ON rm.id_komponen = k.id
+$d_total_area = mysqli_fetch_assoc(
+    mysqli_query(
+        $conn,
+        "SELECT COUNT(*) AS total FROM area_bagian"
+    )
+)['total'];
 
-LEFT JOIN sub_mesin sm
-ON k.id_sub_mesin = sm.id
 
-LEFT JOIN mesin m
-ON sm.id_mesin = m.id
+/* =========================================================
+   MAINTENANCE TERBARU
+========================================================= */
 
-ORDER BY rm.tanggal DESC
-LIMIT 5
-");
+$q_maintenance = mysqli_query(
+    $conn,
+    "SELECT
+        rm.*,
+        k.nama_bagian,
+        m.nama_mesin
+
+     FROM riwayat_maintenance rm
+
+     LEFT JOIN komponen k
+        ON rm.id_komponen = k.id
+
+     LEFT JOIN sub_mesin sm
+        ON k.id_sub_mesin = sm.id
+
+     LEFT JOIN mesin m
+        ON sm.id_mesin = m.id
+
+     ORDER BY rm.tanggal DESC
+     LIMIT 5"
+);
 
 $data_maintenance_list = [];
-if($q_maintenance && mysqli_num_rows($q_maintenance) > 0) {
-    while($row = mysqli_fetch_assoc($q_maintenance)) {
+
+if ($q_maintenance && mysqli_num_rows($q_maintenance) > 0) {
+
+    while ($row = mysqli_fetch_assoc($q_maintenance)) {
         $data_maintenance_list[] = $row;
     }
 }
 
-$q_komponen = mysqli_query($conn,"
-SELECT
-k.*,
-m.nama_mesin
 
-FROM komponen k
+/* =========================================================
+   KOMPONEN BERMASALAH
+========================================================= */
 
-LEFT JOIN sub_mesin sm
-ON k.id_sub_mesin = sm.id
+$q_komponen = mysqli_query(
+    $conn,
+    "SELECT
+        k.*,
+        m.nama_mesin
 
-LEFT JOIN mesin m
-ON sm.id_mesin = m.id
+     FROM komponen k
 
-WHERE k.kondisi != 'Baik'
+     LEFT JOIN sub_mesin sm
+        ON k.id_sub_mesin = sm.id
 
-ORDER BY k.id DESC
+     LEFT JOIN mesin m
+        ON sm.id_mesin = m.id
 
-LIMIT 5
-");
+     WHERE k.kondisi != 'Baik'
+
+     ORDER BY k.id DESC
+
+     LIMIT 5"
+);
 
 $data_komponen_list = [];
-if($q_komponen && mysqli_num_rows($q_komponen) > 0) {
-    while($row = mysqli_fetch_assoc($q_komponen)) {
+
+if ($q_komponen && mysqli_num_rows($q_komponen) > 0) {
+
+    while ($row = mysqli_fetch_assoc($q_komponen)) {
         $data_komponen_list[] = $row;
     }
 }
-?>
 
-<div class="container-fluid">
-    <div class="dashboard-header mb-4">
-        <div class="row align-items-center">
-            <div class="col-lg-8">
-                <h2 class="dashboard-title">
-                    Inventory & Maintenance System
-                </h2>
-                <p class="dashboard-subtitle">
-                    PT Garudafood Putra Putri Jaya Tbk — Monitoring & Rekapitulasi Pemeliharaan.
-                </p>
-            </div>
-            <div class="col-lg-4 text-lg-end">
-                <span class="dashboard-date d-inline-flex align-items-center gap-2">
-                    <i class="bi bi-calendar3"></i>
-                    <span><?=date('d F Y')?></span>
-                    <span class="border-start ps-2 ms-1 text-muted">
-                        <i class="bi bi-clock me-1"></i><span id="jam-realtime">--:--:--</span> WIB
-                    </span>
-                </span>
-            </div>
-        </div>
-    </div>
 
-    <!-- STATS BOX -->
-    <div class="row g-4 mb-4">
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-box blue">
-                <div>
-                    <div class="stat-label">TOTAL MESIN</div>
-                    <div class="stat-number"><?=$d_total_mesin?></div>
-                    <div class="stat-desc">Mesin Terdaftar</div>
-                </div>
-                <div class="stat-icon">
-                    <i class="bi bi-gear-wide-connected"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-box cyan">
-                <div>
-                    <div class="stat-label">TOTAL KOMPONEN</div>
-                    <div class="stat-number"><?=$d_total_komponen?></div>
-                    <div class="stat-desc">Komponen Aktif</div>
-                </div>
-                <div class="stat-icon">
-                    <i class="bi bi-cpu"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-box orange">
-                <div>
-                    <div class="stat-label">PERLU PERHATIAN</div>
-                    <div class="stat-number"><?=$d_komponen_perhatian?></div>
-                    <div class="stat-desc">Warning</div>
-                </div>
-                <div class="stat-icon">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-box green">
-                <div>
-                    <div class="stat-label">MAINTENANCE</div>
-                    <div class="stat-number"><?=$d_maint_bulan_ini?></div>
-                    <div class="stat-desc">Bulan Ini</div>
-                </div>
-                <div class="stat-icon">
-                    <i class="bi bi-tools"></i>
-                </div>
-            </div>
-        </div>
-    </div>
+/* =========================================================
+   DATA AREA + MESIN
+   AREA -> JENIS MESIN -> MESIN
+========================================================= */
 
-    <!-- QUICK ACTION (Disesuaikan dengan folder master & transaksi) -->
-    <div class="content-card mb-4">
-        <div class="card-body-custom">
-            <div class="d-flex justify-content-between align-items-center flex-wrap">
-                <div>
-                    <h5 class="fw-bold">
-                        <i class="bi bi-lightning-charge-fill text-warning"></i> Quick Action
-                    </h5>
-                    <p class="text-muted mb-0">Tambah data master atau transaksi dengan cepat.</p>
-                </div>
-                <div class="d-flex gap-2 mt-3 mt-lg-0 flex-wrap">
-                    <a href="../master/area.php" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-geo-alt"></i> Area
-                    </a>
-                    <a href="../master/jenis_mesin.php" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-grid"></i> Jenis Mesin
-                    </a>
-                    <a href="../mesin/tambah.php" class="btn btn-primary btn-sm">
-                        <i class="bi bi-plus-circle"></i> Mesin
-                    </a>
-                    <a href="../komponen/tambah.php" class="btn btn-primary btn-sm">
-                        <i class="bi bi-cpu"></i> Komponen
-                    </a>
-                    <a href="../maintenance/tambah.php" class="btn btn-warning btn-sm">
-                        <i class="bi bi-tools"></i> Maintenance
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
+$q_area_mesin = mysqli_query(
+    $conn,
+    "SELECT
+        ab.id AS area_id,
+        ab.lokasi,
 
-    <div class="row g-4">
-        <div class="col-lg-8">
-            <div class="content-card h-100">
-                <div class="card-header-custom">
-                    <div>
-                        <h5 class="card-title-custom">
-                            <i class="bi bi-clock-history me-2"></i> Maintenance Terbaru
-                        </h5>
-                        <small class="text-muted">5 aktivitas maintenance terakhir</small>
-                    </div>
-                    <a href="../maintenance/index.php" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
-                </div>
-                <div class="card-body-custom p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th width="130">Tanggal</th>
-                                    <th>Komponen</th>
-                                    <th>Tindakan</th>
-                                    <th width="120" class="text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php if(!empty($data_maintenance_list)): ?>
-                                <?php foreach($data_maintenance_list as $m): ?>
-                                <?php
-                                $badge = "bg-success";
-                                if($m['status'] == "Pending"){
-                                    $badge = "bg-danger";
-                                }
-                                if($m['status'] == "Proses"){
-                                    $badge = "bg-warning text-dark";
-                                }
-                                ?>
-                                <tr>
-                                    <td>
-                                        <strong><?=date('d M Y', strtotime($m['tanggal']))?></strong><br>
-                                        <small class="text-muted"><?=date('H:i', strtotime($m['tanggal']))?></small>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="icon-circle me-3">
-                                                <i class="bi bi-cpu"></i>
-                                            </div>
-                                            <div>
-                                                <strong><?=htmlspecialchars($m['nama_bagian'])?></strong><br>
-                                                <small class="text-muted"><?=htmlspecialchars($m['nama_mesin'])?></small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td><?=htmlspecialchars($m['tindakan'])?></td>
-                                    <td class="text-center">
-                                        <button type="button" 
-                                                class="btn badge <?=$badge?> border-0 px-3 py-2 rounded-pill fw-semibold shadow-sm" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#modalStatusMaint<?=$m['id']?>" 
-                                                title="Klik untuk ubah status">
-                                            <?=$m['status']?> <i class="bi bi-pencil-fill ms-1" style="font-size: 9px;"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="4" class="text-center py-5">
-                                        <i class="bi bi-inbox display-6 text-secondary"></i><br><br>
-                                        Belum ada data maintenance.
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+        m.id AS mesin_id,
+        m.nama_mesin,
+        m.serial_number AS sn_mesin
 
-        <div class="col-lg-4">
-            <div class="content-card h-100">
-                <div class="card-header-custom">
-                    <div>
-                        <h5 class="card-title-custom">
-                            <i class="bi bi-exclamation-triangle text-danger me-2"></i> Komponen Bermasalah
-                        </h5>
-                        <small class="text-muted">Kondisi selain Baik</small>
-                    </div>
-                </div>
-                <div class="card-body-custom p-0">
-                    <?php if(!empty($data_komponen_list)): ?>
-                        <ul class="list-group list-group-flush">
-                        <?php foreach($data_komponen_list as $k): ?>
-                            <li class="list-group-item d-flex justify-content-between align-items-center py-3">
-                                <div>
-                                    <strong><?=htmlspecialchars($k['nama_bagian'])?></strong><br>
-                                    <small class="text-muted"><?=htmlspecialchars($k['nama_mesin'])?></small>
-                                </div>
-                                <button type="button" 
-                                        class="btn badge bg-danger border-0 px-3 py-2 rounded-pill fw-semibold shadow-sm" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#modalKondisiKomp<?=$k['id']?>" 
-                                        title="Klik untuk ubah kondisi">
-                                    <?=$k['kondisi']?> <i class="bi bi-pencil-fill ms-1" style="font-size: 9px;"></i>
-                                </button>
-                            </li>
-                        <?php endforeach; ?>
-                        </ul>
-                    <?php else: ?>
-                        <div class="text-center p-5">
-                            <i class="bi bi-check-circle text-success display-5"></i>
-                            <p class="mt-3 mb-0">Semua komponen dalam kondisi baik.</p>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </div>
+     FROM area_bagian ab
 
-</div>
+     LEFT JOIN jenis_mesin jm
+        ON jm.id_area = ab.id
 
-<!-- MODAL MAINTENANCE -->
-<?php foreach($data_maintenance_list as $m): ?>
-<div class="modal fade" id="modalStatusMaint<?=$m['id']?>" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content rounded-4 border-0 shadow">
-            <form method="POST">
-                <div class="modal-header border-0 pb-0">
-                    <h6 class="modal-title fw-bold">Update Status Maintenance</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body py-3">
-                    <input type="hidden" name="id_maintenance" value="<?=$m['id']?>">
-                    <label class="form-label small text-muted">Pilih Status Baru:</label>
-                    <select name="status" class="form-select rounded-3">
-                        <option value="Proses" <?=$m['status']=='Proses'?'selected':''?>>Proses</option>
-                        <option value="Selesai" <?=$m['status']=='Selesai'?'selected':''?>>Selesai</option>
-                        <option value="Pending" <?=$m['status']=='Pending'?'selected':''?>>Pending</option>
-                    </select>
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="submit" name="update_status_maintenance" class="btn btn-primary btn-sm rounded-3 w-100">Simpan Status</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-<?php endforeach; ?>
+     LEFT JOIN mesin m
+        ON m.id_jenis_mesin = jm.id
 
-<!-- MODAL KOMPONEN -->
-<?php foreach($data_komponen_list as $k): ?>
-<div class="modal fade" id="modalKondisiKomp<?=$k['id']?>" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content rounded-4 border-0 shadow">
-            <form method="POST">
-                <div class="modal-header border-0 pb-0">
-                    <h6 class="modal-title fw-bold">Update Kondisi Komponen</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body py-3">
-                    <input type="hidden" name="id_komponen" value="<?=$k['id']?>">
-                    <label class="form-label small text-muted">Ubah Kondisi Menjadi:</label>
-                    <select name="kondisi" class="form-select rounded-3">
-                        <option value="Baik" <?=$k['kondisi']=='Baik'?'selected':''?>>Baik (Selesai/Aman)</option>
-                        <option value="Perlu Pemeriksaan" <?=$k['kondisi']=='Perlu Pemeriksaan'?'selected':''?>>Perlu Pemeriksaan</option>
-                        <option value="Dalam Perbaikan" <?=$k['kondisi']=='Dalam Perbaikan'?'selected':''?>>Dalam Perbaikan</option>
-                        <option value="Rusak" <?=$k['kondisi']=='Rusak'?'selected':''?>>Rusak</option>
-                    </select>
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="submit" name="update_kondisi_komponen" class="btn btn-primary btn-sm rounded-3 w-100">Simpan Kondisi</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-<?php endforeach; ?>
+     ORDER BY ab.lokasi ASC, m.nama_mesin ASC"
+);
 
-<?php include "../template/footer.php"; ?>
 
-<script>
-    function updateClock() {
-        const now = new Date();
-        const hours   = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        
-        const timeString = `${hours}:${minutes}:${seconds}`;
-        
-        const clockElement = document.getElementById('jam-realtime');
-        if (clockElement) {
-            clockElement.textContent = timeString;
+/* =========================================================
+   GROUPING AREA
+========================================================= */
+
+$area_list = [];
+
+if ($q_area_mesin) {
+
+    while ($row = mysqli_fetch_assoc($q_area_mesin)) {
+
+        $area_id = $row['area_id'];
+
+        if (!isset($area_list[$area_id])) {
+
+            $area_list[$area_id] = [
+                'id' => $area_id,
+                'lokasi' => $row['lokasi'],
+                'mesin' => []
+            ];
+        }
+
+        if (!empty($row['mesin_id'])) {
+
+            $area_list[$area_id]['mesin'][] = [
+                'id' => $row['mesin_id'],
+                'nama' => $row['nama_mesin'],
+                'sn' => $row['sn_mesin']
+            ];
         }
     }
-    updateClock();
-    setInterval(updateClock, 1000);
+}
+
+?>
+
+<style>
+
+/* =========================================================
+   DASHBOARD MODERN
+========================================================= */
+
+.dashboard-page {
+    padding-bottom: 30px;
+}
+
+/* HEADER */
+
+.dashboard-main-header {
+    background: #ffffff;
+    border: 1px solid #e7edf5;
+    border-radius: 18px;
+    padding: 22px 25px;
+    box-shadow: 0 5px 20px rgba(20, 50, 90, 0.05);
+}
+
+.dashboard-main-header .dashboard-title {
+    font-size: 27px;
+    font-weight: 800;
+    color: #123b67;
+    margin-bottom: 5px;
+}
+
+.dashboard-main-header .dashboard-subtitle {
+    color: #738197;
+    font-size: 14px;
+    margin: 0;
+}
+
+.dashboard-date-box {
+    background: #f0f6ff;
+    border: 1px solid #dceaff;
+    border-radius: 12px;
+    padding: 11px 16px;
+    color: #075cb0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   STAT CARD
+========================================================= */
+
+.dashboard-stat {
+    position: relative;
+    overflow: hidden;
+    min-height: 130px;
+    border-radius: 18px;
+    padding: 20px;
+    color: #ffffff;
+    box-shadow: 0 8px 22px rgba(20, 50, 90, 0.10);
+    transition: all .25s ease;
+}
+
+.dashboard-stat:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(20, 50, 90, 0.15);
+}
+
+.dashboard-stat::after {
+    content: "";
+    position: absolute;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    right: -30px;
+    top: -35px;
+    background: rgba(255,255,255,.10);
+}
+
+.dashboard-stat .stat-icon-modern {
+    position: absolute;
+    right: 20px;
+    bottom: 17px;
+    font-size: 43px;
+    color: rgba(255,255,255,.25);
+    z-index: 2;
+}
+
+.dashboard-stat .stat-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .7px;
+    opacity: .9;
+}
+
+.dashboard-stat .stat-number {
+    font-size: 34px;
+    line-height: 1.1;
+    font-weight: 800;
+    margin-top: 7px;
+}
+
+.dashboard-stat .stat-desc {
+    font-size: 12px;
+    margin-top: 5px;
+    opacity: .85;
+}
+
+
+/* WARNA */
+
+.stat-blue {
+    background: linear-gradient(135deg, #0866c6, #1453c7);
+}
+
+.stat-cyan {
+    background: linear-gradient(135deg, #079eb7, #13b8c9);
+}
+
+.stat-orange {
+    background: linear-gradient(135deg, #ed7300, #f89a10);
+}
+
+.stat-green {
+    background: linear-gradient(135deg, #05976e, #13b98a);
+}
+
+
+/* =========================================================
+   QUICK ACTION
+========================================================= */
+
+.quick-action-card {
+    background: #ffffff;
+    border: 1px solid #e5ebf3;
+    border-radius: 18px;
+    padding: 20px 22px;
+    box-shadow: 0 5px 20px rgba(20, 50, 90, .05);
+}
+
+.quick-action-title {
+    font-size: 19px;
+    font-weight: 800;
+    color: #163d66;
+}
+
+.quick-action-subtitle {
+    color: #7a8798;
+    font-size: 13px;
+}
+
+.quick-btn {
+    border-radius: 10px;
+    padding: 9px 13px;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all .2s ease;
+}
+
+.quick-btn:hover {
+    transform: translateY(-2px);
+}
+
+
+/* =========================================================
+   CARD UMUM
+========================================================= */
+
+.modern-card {
+    background: #ffffff;
+    border: 1px solid #e5ebf3;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 5px 20px rgba(20, 50, 90, .05);
+}
+
+.modern-card-header {
+    padding: 17px 20px;
+    border-bottom: 1px solid #edf1f6;
+    background: #ffffff;
+}
+
+.modern-card-title {
+    color: #075cb0;
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0;
+}
+
+.modern-card-subtitle {
+    color: #8490a0;
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   AREA & MESIN
+========================================================= */
+
+.area-section {
+    background: #f7faff;
+    border: 1px solid #e3ebf5;
+    border-radius: 15px;
+    padding: 15px;
+    height: 100%;
+    transition: all .2s ease;
+}
+
+.area-section:hover {
+    border-color: #a9c9ed;
+    box-shadow: 0 7px 20px rgba(20, 80, 140, .07);
+}
+
+.area-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.area-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: #163d66;
+}
+
+.area-icon {
+    width: 35px;
+    height: 35px;
+    border-radius: 10px;
+    background: #e5f1ff;
+    color: #0866c6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.area-count {
+    background: #e8f2ff;
+    color: #0866c6;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 5px 9px;
+    border-radius: 20px;
+}
+
+.machine-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #ffffff;
+    border: 1px solid #e9eef5;
+    border-radius: 11px;
+    padding: 10px 11px;
+    margin-bottom: 8px;
+    text-decoration: none;
+    transition: all .2s ease;
+}
+
+.machine-item:last-child {
+    margin-bottom: 0;
+}
+
+.machine-item:hover {
+    border-color: #b5d4f5;
+    background: #f9fcff;
+    transform: translateX(2px);
+}
+
+.machine-icon {
+    width: 33px;
+    height: 33px;
+    min-width: 33px;
+    border-radius: 9px;
+    background: #edf5ff;
+    color: #0866c6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.machine-name {
+    font-size: 12px;
+    font-weight: 800;
+    color: #263d55;
+}
+
+.machine-sn {
+    font-size: 10px;
+    color: #8995a4;
+}
+
+.machine-arrow {
+    margin-left: auto;
+    color: #a4afbd;
+}
+
+.empty-machine {
+    padding: 15px;
+    text-align: center;
+    border: 1px dashed #d8e0ea;
+    border-radius: 10px;
+    color: #98a3b0;
+    font-size: 11px;
+}
+
+
+/* =========================================================
+   TABLE
+========================================================= */
+
+.dashboard-table thead th {
+    background: #f7f9fc;
+    color: #68778b;
+    font-size: 10px;
+    letter-spacing: .5px;
+    font-weight: 800;
+    border-bottom: 1px solid #e7edf4;
+    padding: 12px 15px;
+}
+
+.dashboard-table tbody td {
+    padding: 12px 15px;
+    font-size: 12px;
+    border-color: #edf1f5;
+}
+
+.dashboard-table tbody tr:hover {
+    background: #f9fbfd;
+}
+
+
+/* =========================================================
+   KOMPONEN BERMASALAH
+========================================================= */
+
+.problem-item {
+    padding: 13px 17px;
+    border-bottom: 1px solid #edf1f5;
+}
+
+.problem-item:last-child {
+    border-bottom: 0;
+}
+
+.problem-icon {
+    width: 37px;
+    height: 37px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff0f0;
+    color: #dc3545;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media(max-width: 767px) {
+
+    .dashboard-main-header {
+        padding: 18px;
+    }
+
+    .dashboard-main-header .dashboard-title {
+        font-size: 21px;
+    }
+
+    .dashboard-date-box {
+        margin-top: 15px;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .quick-action-card {
+        padding: 17px;
+    }
+
+    .quick-action-buttons {
+        margin-top: 15px;
+    }
+}
+
+</style>
+
+
+<div class="container-fluid dashboard-page">
+
+
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
+
+    <div class="dashboard-main-header mb-4">
+
+        <div class="row align-items-center">
+
+            <div class="col-lg-8">
+
+                <div class="d-flex align-items-center gap-3">
+
+                    <div
+                        style="
+                        width:48px;
+                        height:48px;
+                        border-radius:14px;
+                        background:#eaf3ff;
+                        color:#0866c6;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        font-size:23px;
+                        "
+                    >
+                        <i class="bi bi-speedometer2"></i>
+                    </div>
+
+                    <div>
+
+                        <h2 class="dashboard-title">
+                            Inventory & Maintenance System
+                        </h2>
+
+                        <p class="dashboard-subtitle">
+                            PT Garudafood Putra Putri Jaya Tbk —
+                            Monitoring & Rekapitulasi Pemeliharaan.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-lg-4 text-lg-end">
+
+                <div class="dashboard-date-box d-inline-flex align-items-center gap-2">
+
+                    <i class="bi bi-calendar3"></i>
+
+                    <span>
+                        <?= date('d F Y') ?>
+                    </span>
+
+                    <span
+                        style="
+                        width:1px;
+                        height:18px;
+                        background:#cbd9ea;
+                        "
+                    ></span>
+
+                    <i class="bi bi-clock"></i>
+
+                    <span id="jam-realtime">
+                        --:--:--
+                    </span>
+
+                    <span>WIB</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         STATISTIK
+    ====================================================== -->
+
+    <div class="row g-3 mb-4">
+
+
+        <!-- AREA -->
+
+        <div class="col-xl-3 col-md-6">
+
+            <div class="dashboard-stat stat-blue">
+
+                <div class="stat-label">
+                    TOTAL AREA
+                </div>
+
+                <div class="stat-number">
+                    <?= $d_total_area ?>
+                </div>
+
+                <div class="stat-desc">
+                    Area Terdaftar
+                </div>
+
+                <div class="stat-icon-modern">
+                    <i class="bi bi-geo-alt"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- MESIN -->
+
+        <div class="col-xl-3 col-md-6">
+
+            <div class="dashboard-stat stat-cyan">
+
+                <div class="stat-label">
+                    TOTAL MESIN
+                </div>
+
+                <div class="stat-number">
+                    <?= $d_total_mesin ?>
+                </div>
+
+                <div class="stat-desc">
+                    Mesin Terdaftar
+                </div>
+
+                <div class="stat-icon-modern">
+                    <i class="bi bi-gear-wide-connected"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- KOMPONEN -->
+
+        <div class="col-xl-3 col-md-6">
+
+            <div class="dashboard-stat stat-orange">
+
+                <div class="stat-label">
+                    TOTAL KOMPONEN
+                </div>
+
+                <div class="stat-number">
+                    <?= $d_total_komponen ?>
+                </div>
+
+                <div class="stat-desc">
+                    Komponen Aktif
+                </div>
+
+                <div class="stat-icon-modern">
+                    <i class="bi bi-cpu"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- MAINTENANCE -->
+
+        <div class="col-xl-3 col-md-6">
+
+            <div class="dashboard-stat stat-green">
+
+                <div class="stat-label">
+                    MAINTENANCE
+                </div>
+
+                <div class="stat-number">
+                    <?= $d_maint_bulan_ini ?>
+                </div>
+
+                <div class="stat-desc">
+                    Aktivitas Bulan Ini
+                </div>
+
+                <div class="stat-icon-modern">
+                    <i class="bi bi-tools"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         QUICK ACTION
+    ====================================================== -->
+
+    <div class="quick-action-card mb-4">
+
+        <div class="row align-items-center">
+
+            <div class="col-lg-4">
+
+                <div class="quick-action-title">
+
+                    <i class="bi bi-lightning-charge-fill text-warning me-1"></i>
+
+                    Quick Action
+
+                </div>
+
+                <div class="quick-action-subtitle mt-1">
+
+                    Akses cepat untuk mengelola data sistem.
+
+                </div>
+
+            </div>
+
+
+            <div class="col-lg-8">
+
+                <div class="quick-action-buttons d-flex justify-content-lg-end flex-wrap gap-2">
+
+
+                    <a
+                        href="../master/area.php"
+                        class="btn btn-outline-primary quick-btn"
+                    >
+                        <i class="bi bi-geo-alt me-1"></i>
+                        Area
+                    </a>
+
+
+                    <a
+                        href="../master/jenis_mesin.php"
+                        class="btn btn-outline-primary quick-btn"
+                    >
+                        <i class="bi bi-grid me-1"></i>
+                        Jenis Mesin
+                    </a>
+
+
+                    <a
+                        href="../mesin/tambah.php"
+                        class="btn btn-primary quick-btn"
+                    >
+                        <i class="bi bi-plus-circle me-1"></i>
+                        Mesin
+                    </a>
+
+
+                    <a
+                        href="../komponen/tambah.php"
+                        class="btn btn-primary quick-btn"
+                    >
+                        <i class="bi bi-cpu me-1"></i>
+                        Komponen
+                    </a>
+
+
+                    <a
+                        href="../maintenance/tambah.php"
+                        class="btn btn-warning quick-btn text-dark"
+                    >
+                        <i class="bi bi-tools me-1"></i>
+                        Maintenance
+                    </a>
+
+
+                    <a
+                        href="#daftar-area"
+                        class="btn btn-dark quick-btn"
+                    >
+                        <i class="bi bi-diagram-3 me-1"></i>
+                        Area & Mesin
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =====================================================
+         DAFTAR AREA & MESIN
+    ====================================================== -->
+
+    <div
+        class="modern-card mb-4"
+        id="daftar-area"
+    >
+
+        <div class="modern-card-header">
+
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+
+                <div>
+
+                    <h5 class="modern-card-title">
+
+                        <i class="bi bi-diagram-3 me-2"></i>
+
+                        Daftar Area & Mesin
+
+                    </h5>
+
+                    <div class="modern-card-subtitle mt-1">
+
+                        Struktur lokasi area beserta mesin yang terdaftar.
+
+                    </div>
+
+                </div>
+
+
+                <a
+                    href="../master/area.php"
+                    class="btn btn-sm btn-outline-primary"
+                >
+                    <i class="bi bi-pencil-square me-1"></i>
+                    Kelola Area
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <div class="p-3">
+
+            <?php if (!empty($area_list)): ?>
+
+                <div class="row g-3">
+
+                    <?php foreach ($area_list as $area): ?>
+
+                        <div class="col-xl-4 col-lg-6">
+
+                            <div class="area-section">
+
+
+                                <!-- AREA HEADER -->
+
+                                <div class="area-header">
+
+                                    <div class="d-flex align-items-center gap-2">
+
+                                        <div class="area-icon">
+
+                                            <i class="bi bi-geo-alt-fill"></i>
+
+                                        </div>
+
+                                        <div>
+
+                                            <div class="area-name">
+
+                                                <?= htmlspecialchars($area['lokasi']) ?>
+
+                                            </div>
+
+                                            <div
+                                                style="
+                                                font-size:10px;
+                                                color:#8a96a6;
+                                                "
+                                            >
+                                                Area / Bagian
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+
+                                    <span class="area-count">
+
+                                        <?= count($area['mesin']) ?> Mesin
+
+                                    </span>
+
+                                </div>
+
+
+                                <!-- DAFTAR MESIN -->
+
+                                <?php if (!empty($area['mesin'])): ?>
+
+                                    <?php foreach ($area['mesin'] as $mesin): ?>
+
+                                        <a
+                                            href="../mesin/detail.php?id=<?= $mesin['id'] ?>"
+                                            class="machine-item"
+                                        >
+
+                                            <div class="machine-icon">
+
+                                                <i class="bi bi-gear-wide-connected"></i>
+
+                                            </div>
+
+
+                                            <div>
+
+                                                <div class="machine-name">
+
+                                                    <?= htmlspecialchars($mesin['nama']) ?>
+
+                                                </div>
+
+
+                                                <div class="machine-sn">
+
+                                                    <i class="bi bi-upc-scan me-1"></i>
+
+                                                    SN:
+                                                    <?= !empty($mesin['sn'])
+                                                        ? htmlspecialchars($mesin['sn'])
+                                                        : '-'
+                                                    ?>
+
+                                                </div>
+
+                                            </div>
+
+
+                                            <div class="machine-arrow">
+
+                                                <i class="bi bi-chevron-right"></i>
+
+                                            </div>
+
+                                        </a>
+
+                                    <?php endforeach; ?>
+
+                                <?php else: ?>
+
+                                    <div class="empty-machine">
+
+                                        <i class="bi bi-inbox me-1"></i>
+
+                                        Belum ada mesin pada area ini.
+
+                                    </div>
+
+                                <?php endif; ?>
+
+
+                            </div>
+
+                        </div>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+            <?php else: ?>
+
+                <div class="text-center py-5">
+
+                    <div
+                        style="
+                        width:60px;
+                        height:60px;
+                        border-radius:16px;
+                        background:#f0f4f8;
+                        color:#9aa7b5;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        margin:auto;
+                        font-size:25px;
+                        "
+                    >
+
+                        <i class="bi bi-geo-alt"></i>
+
+                    </div>
+
+                    <h6 class="fw-bold mt-3">
+                        Belum ada data area
+                    </h6>
+
+                    <p class="text-muted small mb-3">
+                        Tambahkan area terlebih dahulu untuk menampilkan struktur mesin.
+                    </p>
+
+                    <a
+                        href="../master/area.php"
+                        class="btn btn-primary btn-sm"
+                    >
+                        <i class="bi bi-plus-circle me-1"></i>
+                        Tambah Area
+                    </a>
+
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         MAINTENANCE + KOMPONEN
+    ====================================================== -->
+
+    <div class="row g-4">
+
+
+        <!-- =================================================
+             MAINTENANCE
+        ================================================== -->
+
+        <div class="col-xl-8">
+
+            <div class="modern-card h-100">
+
+                <div class="modern-card-header">
+
+                    <div class="d-flex justify-content-between align-items-center">
+
+                        <div>
+
+                            <h5 class="modern-card-title">
+
+                                <i class="bi bi-clock-history me-2"></i>
+
+                                Maintenance Terbaru
+
+                            </h5>
+
+                            <div class="modern-card-subtitle mt-1">
+
+                                5 aktivitas maintenance terakhir.
+
+                            </div>
+
+                        </div>
+
+
+                        <a
+                            href="../maintenance/index.php"
+                            class="btn btn-sm btn-outline-primary"
+                        >
+                            Lihat Semua
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+                <div class="table-responsive">
+
+                    <table class="table dashboard-table align-middle mb-0">
+
+                        <thead>
+
+                            <tr>
+
+                                <th width="125">
+                                    TANGGAL
+                                </th>
+
+                                <th>
+                                    KOMPONEN
+                                </th>
+
+                                <th>
+                                    TINDAKAN
+                                </th>
+
+                                <th
+                                    width="120"
+                                    class="text-center"
+                                >
+                                    STATUS
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                        <?php if (!empty($data_maintenance_list)): ?>
+
+                            <?php foreach ($data_maintenance_list as $m): ?>
+
+                                <?php
+
+                                $badge = "bg-success";
+
+                                if ($m['status'] == "Pending") {
+                                    $badge = "bg-danger";
+                                }
+
+                                if ($m['status'] == "Proses") {
+                                    $badge = "bg-warning text-dark";
+                                }
+
+                                ?>
+
+
+                                <tr>
+
+                                    <td>
+
+                                        <strong>
+
+                                            <?= date(
+                                                'd M Y',
+                                                strtotime($m['tanggal'])
+                                            ) ?>
+
+                                        </strong>
+
+                                        <br>
+
+                                        <small class="text-muted">
+
+                                            <?= date(
+                                                'H:i',
+                                                strtotime($m['tanggal'])
+                                            ) ?>
+
+                                        </small>
+
+                                    </td>
+
+
+                                    <td>
+
+                                        <div class="d-flex align-items-center">
+
+                                            <div
+                                                class="icon-circle me-2"
+                                                style="
+                                                width:34px;
+                                                height:34px;
+                                                "
+                                            >
+
+                                                <i class="bi bi-cpu"></i>
+
+                                            </div>
+
+
+                                            <div>
+
+                                                <strong>
+
+                                                    <?= htmlspecialchars(
+                                                        $m['nama_bagian'] ?? '-'
+                                                    ) ?>
+
+                                                </strong>
+
+                                                <br>
+
+                                                <small class="text-muted">
+
+                                                    <?= htmlspecialchars(
+                                                        $m['nama_mesin'] ?? '-'
+                                                    ) ?>
+
+                                                </small>
+
+                                            </div>
+
+                                        </div>
+
+                                    </td>
+
+
+                                    <td>
+
+                                        <?= htmlspecialchars(
+                                            $m['tindakan'] ?? '-'
+                                        ) ?>
+
+                                    </td>
+
+
+                                    <td class="text-center">
+
+                                        <button
+                                            type="button"
+                                            class="btn badge <?= $badge ?> border-0 px-3 py-2 rounded-pill fw-semibold"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalStatusMaint<?= $m['id'] ?>"
+                                        >
+
+                                            <?= htmlspecialchars($m['status']) ?>
+
+                                            <i
+                                                class="bi bi-pencil-fill ms-1"
+                                                style="font-size:8px"
+                                            ></i>
+
+                                        </button>
+
+                                    </td>
+
+                                </tr>
+
+                            <?php endforeach; ?>
+
+                        <?php else: ?>
+
+                            <tr>
+
+                                <td
+                                    colspan="4"
+                                    class="text-center py-5"
+                                >
+
+                                    <i
+                                        class="bi bi-inbox fs-1 text-secondary"
+                                    ></i>
+
+                                    <div class="mt-2 text-muted small">
+
+                                        Belum ada data maintenance.
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endif; ?>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             KOMPONEN BERMASALAH
+        ================================================== -->
+
+        <div class="col-xl-4">
+
+            <div class="modern-card h-100">
+
+                <div class="modern-card-header">
+
+                    <h5 class="modern-card-title">
+
+                        <i class="bi bi-exclamation-triangle text-danger me-2"></i>
+
+                        Komponen Bermasalah
+
+                    </h5>
+
+                    <div class="modern-card-subtitle mt-1">
+
+                        Kondisi selain Baik.
+
+                    </div>
+
+                </div>
+
+
+                <?php if (!empty($data_komponen_list)): ?>
+
+                    <?php foreach ($data_komponen_list as $k): ?>
+
+                        <div class="problem-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="problem-icon">
+
+                                    <i class="bi bi-cpu"></i>
+
+                                </div>
+
+
+                                <div class="flex-grow-1">
+
+                                    <div class="fw-bold small">
+
+                                        <?= htmlspecialchars(
+                                            $k['nama_bagian']
+                                        ) ?>
+
+                                    </div>
+
+                                    <div class="text-muted"
+                                         style="font-size:10px">
+
+                                        <?= htmlspecialchars(
+                                            $k['nama_mesin'] ?? '-'
+                                        ) ?>
+
+                                    </div>
+
+                                </div>
+
+
+                                <?php
+
+                                $badge_problem = "bg-danger";
+
+                                if (
+                                    $k['kondisi'] ==
+                                    "Perlu Pemeriksaan"
+                                ) {
+                                    $badge_problem =
+                                        "bg-warning text-dark";
+                                }
+
+                                ?>
+
+
+                                <button
+                                    type="button"
+                                    class="btn badge <?= $badge_problem ?> border-0 rounded-pill px-2 py-2"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalKondisiKomp<?= $k['id'] ?>"
+                                    style="font-size:9px"
+                                >
+
+                                    <?= htmlspecialchars(
+                                        $k['kondisi']
+                                    ) ?>
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    <?php endforeach; ?>
+
+                <?php else: ?>
+
+                    <div class="text-center py-5 px-3">
+
+                        <div
+                            style="
+                            width:60px;
+                            height:60px;
+                            margin:auto;
+                            border-radius:50%;
+                            background:#e9f8f1;
+                            color:#0a996c;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            font-size:28px;
+                            "
+                        >
+
+                            <i class="bi bi-check-lg"></i>
+
+                        </div>
+
+                        <div class="fw-bold mt-3">
+
+                            Semua Komponen Baik
+
+                        </div>
+
+                        <div class="text-muted small mt-1">
+
+                            Tidak ada komponen yang membutuhkan perhatian.
+
+                        </div>
+
+                    </div>
+
+                <?php endif; ?>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     MODAL STATUS MAINTENANCE
+========================================================= -->
+
+<?php foreach ($data_maintenance_list as $m): ?>
+
+<div
+    class="modal fade"
+    id="modalStatusMaint<?= $m['id'] ?>"
+    tabindex="-1"
+>
+
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+
+        <div class="modal-content rounded-4 border-0 shadow">
+
+            <form method="POST">
+
+                <div class="modal-header border-0 pb-0">
+
+                    <h6 class="modal-title fw-bold">
+                        Update Status Maintenance
+                    </h6>
+
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                    ></button>
+
+                </div>
+
+
+                <div class="modal-body py-3">
+
+                    <input
+                        type="hidden"
+                        name="id_maintenance"
+                        value="<?= $m['id'] ?>"
+                    >
+
+
+                    <label class="form-label small text-muted">
+
+                        Pilih Status Baru:
+
+                    </label>
+
+
+                    <select
+                        name="status"
+                        class="form-select rounded-3"
+                    >
+
+                        <option
+                            value="Proses"
+                            <?= $m['status'] == 'Proses'
+                                ? 'selected'
+                                : '' ?>
+                        >
+                            Proses
+                        </option>
+
+                        <option
+                            value="Selesai"
+                            <?= $m['status'] == 'Selesai'
+                                ? 'selected'
+                                : '' ?>
+                        >
+                            Selesai
+                        </option>
+
+                        <option
+                            value="Pending"
+                            <?= $m['status'] == 'Pending'
+                                ? 'selected'
+                                : '' ?>
+                        >
+                            Pending
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="modal-footer border-0 pt-0">
+
+                    <button
+                        type="submit"
+                        name="update_status_maintenance"
+                        class="btn btn-primary btn-sm rounded-3 w-100"
+                    >
+                        <i class="bi bi-check-lg me-1"></i>
+                        Simpan Status
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+<?php endforeach; ?>
+
+
+<!-- =========================================================
+     MODAL KONDISI KOMPONEN
+========================================================= -->
+
+<?php foreach ($data_komponen_list as $k): ?>
+
+<div
+    class="modal fade"
+    id="modalKondisiKomp<?= $k['id'] ?>"
+    tabindex="-1"
+>
+
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+
+        <div class="modal-content rounded-4 border-0 shadow">
+
+            <form method="POST">
+
+                <div class="modal-header border-0 pb-0">
+
+                    <h6 class="modal-title fw-bold">
+
+                        Update Kondisi Komponen
+
+                    </h6>
+
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                    ></button>
+
+                </div>
+
+
+                <div class="modal-body py-3">
+
+                    <input
+                        type="hidden"
+                        name="id_komponen"
+                        value="<?= $k['id'] ?>"
+                    >
+
+
+                    <label class="form-label small text-muted">
+
+                        Ubah Kondisi Menjadi:
+
+                    </label>
+
+
+                    <select
+                        name="kondisi"
+                        class="form-select rounded-3"
+                    >
+
+                        <option
+                            value="Baik"
+                            <?= $k['kondisi'] == 'Baik'
+                                ? 'selected'
+                                : '' ?>
+                        >
+                            Baik
+                        </option>
+
+                        <option
+                            value="Perlu Pemeriksaan"
+                            <?= $k['kondisi'] == 'Perlu Pemeriksaan'
+                                ? 'selected'
+                                : '' ?>
+                        >
+                            Perlu Pemeriksaan
+                        </option>
+
+                        <option
+                            value="Dalam Perbaikan"
+                            <?= $k['kondisi'] == 'Dalam Perbaikan'
+                                ? 'selected'
+                                : '' ?>
+                        >
+                            Dalam Perbaikan
+                        </option>
+
+                        <option
+                            value="Rusak"
+                            <?= $k['kondisi'] == 'Rusak'
+                                ? 'selected'
+                                : '' ?>
+                        >
+                            Rusak
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="modal-footer border-0 pt-0">
+
+                    <button
+                        type="submit"
+                        name="update_kondisi_komponen"
+                        class="btn btn-primary btn-sm rounded-3 w-100"
+                    >
+
+                        <i class="bi bi-check-lg me-1"></i>
+
+                        Simpan Kondisi
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+<?php endforeach; ?>
+
+
+<script>
+
+/* =========================================================
+   JAM REALTIME
+========================================================= */
+
+function updateClock() {
+
+    const now = new Date();
+
+    const hours =
+        String(now.getHours()).padStart(2, '0');
+
+    const minutes =
+        String(now.getMinutes()).padStart(2, '0');
+
+    const seconds =
+        String(now.getSeconds()).padStart(2, '0');
+
+    const clock =
+        document.getElementById('jam-realtime');
+
+    if (clock) {
+
+        clock.textContent =
+            `${hours}:${minutes}:${seconds}`;
+
+    }
+}
+
+updateClock();
+
+setInterval(updateClock, 1000);
+
+
+/* =========================================================
+   SMOOTH SCROLL QUICK ACTION
+========================================================= */
+
+document.querySelectorAll('a[href^="#"]').forEach(
+    function(anchor) {
+
+        anchor.addEventListener('click', function(e) {
+
+            const target =
+                document.querySelector(
+                    this.getAttribute('href')
+                );
+
+            if (target) {
+
+                e.preventDefault();
+
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+
+            }
+
+        });
+
+    }
+);
+
 </script>
+
+
+<?php include "../template/footer.php"; ?>
