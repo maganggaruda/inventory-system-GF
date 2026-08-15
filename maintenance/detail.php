@@ -36,7 +36,10 @@ $stmt = mysqli_prepare($conn, "
         k.id AS komponen_id,
         k.nama_bagian,
         k.serial_number AS serial_number_komponen,
-        k.kategori,
+
+        /* JENIS KOMPONEN */
+        k.jenis_komponen AS jenis_komponen,
+
         k.lokasi AS lokasi_komponen,
         k.brand,
         k.tipe,
@@ -149,14 +152,6 @@ $jenisMaintenance = trim(
 
 $fotoNama = '';
 
-/*
- * Pada struktur database yang digunakan sebelumnya,
- * kolom gambar berada pada field "gambar".
- *
- * Tetap diberikan fallback "foto" apabila database lama
- * masih menggunakan nama kolom tersebut.
- */
-
 if (!empty($d['gambar'])) {
     $fotoNama = $d['gambar'];
 } elseif (!empty($d['foto'])) {
@@ -174,9 +169,7 @@ if ($fotoNama !== '') {
         $fotoNamaAman;
 
     if (file_exists($physicalPath)) {
-
-        $fotoPath =
-            $physicalPath;
+        $fotoPath = $physicalPath;
     }
 }
 
@@ -220,6 +213,15 @@ $serialMesin =
 $serialKomponen =
     trim($d['serial_number_komponen'] ?? '');
 
+/*
+ * JENIS KOMPONEN
+ * SUMBER:
+ * tabel komponen
+ * kolom jenis_komponen
+ */
+$jenisKomponen =
+    trim($d['jenis_komponen'] ?? '');
+
 $teknisi =
     trim($d['teknisi'] ?? '');
 
@@ -231,9 +233,6 @@ $sparepart =
 
 $catatan =
     trim($d['catatan'] ?? '');
-
-$kategori =
-    trim($d['kategori'] ?? '');
 
 $lokasiKomponen =
     trim($d['lokasi_komponen'] ?? '');
@@ -1120,7 +1119,7 @@ include "../template/header.php";
 
     <div class="row g-3 mb-4">
 
-        <!-- JENIS -->
+        <!-- JENIS MAINTENANCE -->
 
         <div class="col-md-4">
 
@@ -1139,7 +1138,7 @@ include "../template/header.php";
                         </div>
 
                         <div class="detail-stat-number">
-                            <?= e($jenisMaintenance) ?>
+                            <?= e($jenisMaintenance !== '' ? $jenisMaintenance : '-') ?>
                         </div>
 
                     </div>
@@ -1151,7 +1150,7 @@ include "../template/header.php";
         </div>
 
 
-        <!-- KOMPONEN -->
+        <!-- JENIS KOMPONEN -->
 
         <div class="col-md-4">
 
@@ -1166,11 +1165,11 @@ include "../template/header.php";
                     <div class="min-w-0">
 
                         <div class="detail-stat-label">
-                            KOMPONEN
+                            JENIS KOMPONEN
                         </div>
 
                         <div class="detail-stat-number">
-                            <?= e($namaKomponen !== '' ? $namaKomponen : '-') ?>
+                            <?= e($jenisKomponen !== '' ? $jenisKomponen : '-') ?>
                         </div>
 
                     </div>
@@ -1518,14 +1517,30 @@ include "../template/header.php";
                     </div>
 
 
+                    <!-- =================================================
+                         JENIS KOMPONEN
+                    ================================================== -->
+
                     <div class="device-item">
 
                         <div class="detail-label">
-                            Kategori
+                            Jenis Komponen
                         </div>
 
                         <div class="device-value">
-                            <?= e($kategori !== '' ? $kategori : '-') ?>
+
+                            <?php if ($jenisKomponen !== ''): ?>
+
+                                <span class="badge badge-soft rounded-pill px-3 py-2">
+                                    <?= e($jenisKomponen) ?>
+                                </span>
+
+                            <?php else: ?>
+
+                                -
+
+                            <?php endif; ?>
+
                         </div>
 
                     </div>
@@ -1660,6 +1675,7 @@ include "../template/header.php";
                                 <td>
 
                                     <?php
+
                                     $kondisi = trim(
                                         $d['kondisi'] ?? ''
                                     );
@@ -1669,24 +1685,35 @@ include "../template/header.php";
                                     }
 
                                     if ($kondisi === 'Baik') {
-                                        $badgeKondisi = 'bg-success';
+
+                                        $badgeKondisi =
+                                            'bg-success';
+
                                     } elseif (
                                         $kondisi === 'Perlu Pemeriksaan'
                                     ) {
+
                                         $badgeKondisi =
                                             'bg-warning text-dark';
+
                                     } elseif (
                                         $kondisi === 'Rusak'
                                     ) {
+
                                         $badgeKondisi =
                                             'bg-danger';
+
                                     } else {
+
                                         $badgeKondisi =
                                             'badge-soft';
                                     }
+
                                     ?>
 
-                                    <span class="badge <?= $badgeKondisi ?> rounded-pill px-2 py-1">
+                                    <span
+                                        class="badge <?= $badgeKondisi ?> rounded-pill px-2 py-1"
+                                    >
                                         <?= e($kondisi) ?>
                                     </span>
 

@@ -16,10 +16,46 @@ function e($value)
 
 
 /* =========================================================
+   FUNGSI AMBIL JENIS KOMPONEN
+========================================================= */
+function getJenisKomponen($data)
+{
+    /*
+     * Prioritas:
+     * 1. jenis_komponen
+     * 2. kategori
+     * 3. jenis
+     */
+
+    $fields = [
+        'jenis_komponen',
+        'kategori',
+        'jenis'
+    ];
+
+    foreach ($fields as $field) {
+
+        if (
+            isset($data[$field]) &&
+            trim((string)$data[$field]) !== ''
+        ) {
+
+            return trim((string)$data[$field]);
+        }
+    }
+
+    return '';
+}
+
+
+/* =========================================================
    PROSES SIMPAN MAINTENANCE
 ========================================================= */
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])) {
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    isset($_POST['simpan_maintenance'])
+) {
 
     /* =====================================================
        DATA UTAMA
@@ -47,80 +83,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
 
 
     /* =====================================================
-       DATA SPESIFIKASI
+       DATA INFORMASI UMUM
     ===================================================== */
 
-    $serial_number = trim(
-        $_POST['serial_number'] ?? ''
-    );
+    $serial_number = '';
 
-    $nama_bagian = trim(
-        $_POST['nama_bagian'] ?? ''
-    );
+    $nama_bagian = '';
 
-    $kategori = trim(
-        $_POST['kategori'] ?? ''
-    );
+    $jenis_komponen = '';
 
-    $nama_mesin = trim(
-        $_POST['nama_mesin'] ?? ''
-    );
+    $nama_mesin = '';
 
-    $nama_sub_mesin = trim(
-        $_POST['nama_sub_mesin'] ?? ''
-    );
+    $nama_sub_mesin = '';
 
-    $lokasi_penempatan = trim(
-        $_POST['lokasi_penempatan'] ?? ''
-    );
-
-    $brand = trim(
-        $_POST['brand'] ?? ''
-    );
-
-    $tipe = trim(
-        $_POST['tipe'] ?? ''
-    );
-
-    $part_number = trim(
-        $_POST['part_number'] ?? ''
-    );
-
-    $daya = trim(
-        $_POST['daya'] ?? ''
-    );
-
-    $io_address = trim(
-        $_POST['io_address'] ?? ''
-    );
-
-    $input_voltage = trim(
-        $_POST['input_voltage'] ?? ''
-    );
-
-    $frekuensi_input = trim(
-        $_POST['frekuensi_input'] ?? ''
-    );
-
-    $arus_input = trim(
-        $_POST['arus_input'] ?? ''
-    );
-
-    $output = trim(
-        $_POST['output'] ?? ''
-    );
-
-    $frekuensi_output = trim(
-        $_POST['frekuensi_output'] ?? ''
-    );
-
-    $ip_rating = trim(
-        $_POST['ip_rating'] ?? ''
-    );
+    $lokasi_penempatan = '';
 
 
     /* =====================================================
-       VALIDASI DATA
+       SPESIFIKASI MANUAL
+    ===================================================== */
+
+    $brand = trim($_POST['brand'] ?? '');
+
+    $tipe = trim($_POST['tipe'] ?? '');
+
+    $part_number = trim($_POST['part_number'] ?? '');
+
+    $daya = trim($_POST['daya'] ?? '');
+
+    $io_address = trim($_POST['io_address'] ?? '');
+
+    $input_voltage = trim($_POST['input_voltage'] ?? '');
+
+    $frekuensi_input = trim($_POST['frekuensi_input'] ?? '');
+
+    $arus_input = trim($_POST['arus_input'] ?? '');
+
+    $output = trim($_POST['output'] ?? '');
+
+    $frekuensi_output = trim($_POST['frekuensi_output'] ?? '');
+
+    $ip_rating = trim($_POST['ip_rating'] ?? '');
+
+
+    /* =====================================================
+       VALIDASI
     ===================================================== */
 
     if ($id_komponen <= 0) {
@@ -138,8 +145,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
     } elseif (empty($input_tanggal)) {
 
         $error = "Tanggal maintenance wajib diisi.";
+    }
 
-    } else {
+
+    /* =====================================================
+       VALIDASI TANGGAL
+    ===================================================== */
+
+    if (empty($error)) {
 
         $tanggal_obj = DateTime::createFromFormat(
             'Y-m-d',
@@ -197,9 +210,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
 
 
     /* =====================================================
-       AMBIL DATA KOMPONEN DARI DATABASE
-       Supaya data spesifikasi tidak mudah dimanipulasi
+       AMBIL DATA KOMPONEN LANGSUNG DARI DATABASE
+       
+       PENTING:
+       JENIS KOMPONEN TIDAK DIAMBIL DARI POST.
+       
+       LANGSUNG DARI:
+       komponen
     ===================================================== */
+
+    $data_komponen = null;
 
     if (empty($error)) {
 
@@ -210,6 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
                 k.*,
                 sm.nama_sub_mesin,
                 m.nama_mesin
+
             FROM komponen k
 
             LEFT JOIN sub_mesin sm
@@ -219,6 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
                 ON sm.id_mesin = m.id
 
             WHERE k.id = ?
+
             LIMIT 1
             "
         );
@@ -227,7 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
         if (!$stmt_komponen) {
 
             $error =
-                "Gagal menyiapkan data komponen: " .
+                "Gagal mengambil data komponen: " .
                 mysqli_error($conn);
 
         } else {
@@ -261,71 +283,116 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
 
                 $error =
                     "Komponen yang dipilih tidak ditemukan.";
+
+            } else {
+
+                /* =============================================
+                   DATA UMUM
+                ============================================= */
+
+                $serial_number =
+                    trim(
+                        (string)(
+                            $data_komponen['serial_number'] ?? ''
+                        )
+                    );
+
+
+                $nama_bagian =
+                    trim(
+                        (string)(
+                            $data_komponen['nama_bagian'] ?? ''
+                        )
+                    );
+
+
+                /*
+                 * INI BAGIAN PENTING.
+                 *
+                 * Sistem mencari:
+                 *
+                 * jenis_komponen
+                 * kategori
+                 * jenis
+                 *
+                 * secara otomatis.
+                 */
+
+                $jenis_komponen =
+                    getJenisKomponen(
+                        $data_komponen
+                    );
+
+
+                $nama_mesin =
+                    trim(
+                        (string)(
+                            $data_komponen['nama_mesin'] ?? ''
+                        )
+                    );
+
+
+                $nama_sub_mesin =
+                    trim(
+                        (string)(
+                            $data_komponen['nama_sub_mesin'] ?? ''
+                        )
+                    );
+
+
+                $lokasi_penempatan =
+                    trim(
+                        (string)(
+                            $data_komponen['lokasi'] ?? ''
+                        )
+                    );
+
+
+                /*
+                 * Kalau jenis komponen masih kosong,
+                 * cek nama kolom yang tersedia.
+                 *
+                 * Ini membantu memastikan data benar-benar
+                 * terbaca dari database.
+                 */
+
+                if ($jenis_komponen === '') {
+
+                    $kemungkinan_field = [
+                        'jenis_komponen',
+                        'kategori',
+                        'jenis'
+                    ];
+
+                    foreach (
+                        $kemungkinan_field as $field
+                    ) {
+
+                        if (
+                            array_key_exists(
+                                $field,
+                                $data_komponen
+                            )
+                        ) {
+
+                            $nilai =
+                                trim(
+                                    (string)(
+                                        $data_komponen[$field] ?? ''
+                                    )
+                                );
+
+                            if ($nilai !== '') {
+
+                                $jenis_komponen = $nilai;
+
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
-    }
-
-
-    /* =====================================================
-       JIKA DATA KOMPONEN VALID,
-       GUNAKAN DATA DATABASE SEBAGAI SUMBER UTAMA
-    ===================================================== */
-
-    if (
-        empty($error) &&
-        !empty($data_komponen)
-    ) {
-
-        $serial_number =
-            $data_komponen['serial_number'] ?? '';
-
-        $nama_bagian =
-            $data_komponen['nama_bagian'] ?? '';
-
-        $kategori =
-            $data_komponen['kategori'] ?? '';
-
-        $nama_mesin =
-            $data_komponen['nama_mesin'] ?? '';
-
-        $nama_sub_mesin =
-            $data_komponen['nama_sub_mesin'] ?? '';
-
-        $lokasi_penempatan =
-            $data_komponen['lokasi'] ?? '';
-
-        $brand =
-            $data_komponen['brand'] ?? '';
-
-        $tipe =
-            $data_komponen['tipe'] ?? '';
-
-        $part_number =
-            $data_komponen['part_number'] ?? '';
-
-        $daya =
-            $data_komponen['daya'] ?? '';
-
-        $io_address =
-            $data_komponen['io_address'] ?? '';
-
-        $input_voltage =
-            $data_komponen['input_voltage'] ?? '';
-
-        $frekuensi_input =
-            $data_komponen['frekuensi_input'] ?? '';
-
-        $arus_input =
-            $data_komponen['arus_input'] ?? '';
-
-        $output =
-            $data_komponen['output'] ?? '';
-
-        $frekuensi_output =
-            $data_komponen['frekuensi_output'] ?? '';
-
-        $ip_rating =
-            $data_komponen['ip_rating'] ?? '';
     }
 
 
@@ -347,10 +414,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
         $file = $_FILES['foto'];
 
 
-        /* =================================================
-           CEK ERROR UPLOAD
-        ================================================= */
-
         if ($file['error'] !== UPLOAD_ERR_OK) {
 
             $error =
@@ -368,10 +431,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
                 "File foto tidak valid.";
 
         } else {
-
-            /* =============================================
-               VALIDASI MIME
-            ============================================= */
 
             $allowed_mime = [
                 'image/jpeg' => 'jpg',
@@ -405,10 +464,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
 
             } else {
 
-                /* =========================================
-                   FOLDER UPLOAD
-                ========================================= */
-
                 $target_dir =
                     "../uploads/maintenance/";
 
@@ -428,10 +483,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
                     }
                 }
 
-
-                /* =========================================
-                   GENERATE NAMA FILE
-                ========================================= */
 
                 if (empty($error)) {
 
@@ -466,10 +517,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
                         $foto_nama;
 
 
-                    /* =====================================
-                       PINDAHKAN FILE
-                    ===================================== */
-
                     if (
                         !move_uploaded_file(
                             $file['tmp_name'],
@@ -491,7 +538,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
 
 
     /* =====================================================
-       SIMPAN KE DATABASE
+       SIMPAN MAINTENANCE
+       
+       DATABASE RIWAYAT:
+       kolom kategori tetap digunakan sebagai
+       penyimpanan jenis komponen.
     ===================================================== */
 
     if (empty($error)) {
@@ -588,6 +639,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
 
         } else {
 
+            /*
+             * IMPORTANT:
+             *
+             * $jenis_komponen disimpan ke
+             * riwayat_maintenance.kategori
+             */
+
             mysqli_stmt_bind_param(
                 $stmt,
                 "isssssssssssssssssssssssss",
@@ -601,7 +659,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
 
                 $serial_number,
                 $nama_bagian,
-                $kategori,
+                $jenis_komponen,
                 $nama_mesin,
                 $nama_sub_mesin,
                 $lokasi_penempatan,
@@ -686,10 +744,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
                 mysqli_stmt_close($stmt);
 
 
-                /* =========================================
-                   REDIRECT
-                ========================================= */
-
                 header(
                     "Location: index.php?simpan=berhasil"
                 );
@@ -707,10 +761,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
                 mysqli_stmt_close($stmt);
 
 
-                /* =========================================
-                   HAPUS FOTO JIKA DB GAGAL
-                ========================================= */
-
                 if (
                     !empty($foto_baru_path) &&
                     file_exists($foto_baru_path)
@@ -726,8 +776,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_maintenance'])
 
 
     /* =====================================================
-       JIKA ERROR DAN FOTO SUDAH TERUPLOAD
-       HAPUS FOTO BARU
+       HAPUS FOTO JIKA ERROR
     ===================================================== */
 
     if (
@@ -781,10 +830,6 @@ include "../template/header.php";
 ?>
 
 
-<!-- =========================================================
-     SELECT2 CSS
-========================================================= -->
-
 <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
@@ -798,10 +843,6 @@ include "../template/header.php";
 
 <style>
 
-/* =========================================================
-   GENERAL
-========================================================= */
-
 .maintenance-page {
     max-width: 100%;
 }
@@ -809,7 +850,7 @@ include "../template/header.php";
 .maintenance-card {
     border: 0;
     border-radius: 18px;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, .05);
+    box-shadow: 0 4px 18px rgba(0,0,0,.05);
 }
 
 .section-title {
@@ -834,96 +875,80 @@ textarea.form-control {
     min-height: auto;
 }
 
+.auto-field {
+    background-color: #f8fafc !important;
+    cursor: not-allowed;
+}
 
-/* =========================================================
-   SELECT2
-========================================================= */
+.manual-field {
+    background-color: #fff !important;
+}
+
+.manual-field:focus {
+    border-color: #0056a6 !important;
+    box-shadow: 0 0 0 .2rem rgba(0,86,166,.10) !important;
+}
 
 .select2-container {
     width: 100% !important;
 }
 
-.select2-container--bootstrap-5
-.select2-selection {
-
+.select2-container--bootstrap-5 .select2-selection {
     min-height: 40px !important;
-
     border-radius: 10px !important;
-
     border-color: #dee2e6 !important;
-
     padding-top: 3px;
 }
 
 .select2-container--bootstrap-5
 .select2-selection__rendered {
-
     padding-left: 10px !important;
-
     line-height: 31px !important;
 }
 
-
-/* =========================================================
-   FOTO PREVIEW
-========================================================= */
-
 .photo-preview-wrapper {
-
     width: 100%;
-
     min-height: 180px;
-
     border: 1px dashed #cbd5e1;
-
     border-radius: 14px;
-
     background: #f8fafc;
-
     display: flex;
-
     align-items: center;
-
     justify-content: center;
-
     overflow: hidden;
-
     position: relative;
 }
 
 .photo-preview-wrapper img {
-
     max-width: 100%;
-
     max-height: 240px;
-
     width: auto;
-
     height: auto;
-
     object-fit: contain;
-
     border-radius: 10px;
 }
 
 .photo-empty {
-
     text-align: center;
-
     color: #94a3b8;
 }
 
 .photo-empty i {
-
     font-size: 42px;
-
     opacity: .45;
 }
 
+.btn-primary-garuda {
+    background-color: #0056a6;
+    border-color: #0056a6;
+    color: #fff;
+}
 
-/* =========================================================
-   MOBILE
-========================================================= */
+.btn-primary-garuda:hover {
+    background-color: #004685;
+    border-color: #004685;
+    color: #fff;
+}
 
 @media (max-width: 767.98px) {
 
@@ -948,15 +973,6 @@ textarea.form-control {
         font-size: 19px !important;
     }
 
-    .page-header p {
-        font-size: 12px;
-    }
-
-    .back-button {
-        width: 38px !important;
-        height: 38px !important;
-    }
-
     .submit-wrapper {
         flex-direction: column;
     }
@@ -968,43 +984,6 @@ textarea.form-control {
     .photo-preview-wrapper {
         min-height: 150px;
     }
-
-}
-
-
-/* =========================================================
-   TABLET
-========================================================= */
-
-@media (min-width: 768px) and (max-width: 991.98px) {
-
-    .page-header h2 {
-        font-size: 21px !important;
-    }
-
-}
-
-
-/* =========================================================
-   BUTTON
-========================================================= */
-
-.btn-primary-garuda {
-
-    background-color: #0056a6;
-
-    border-color: #0056a6;
-
-    color: #fff;
-}
-
-.btn-primary-garuda:hover {
-
-    background-color: #004685;
-
-    border-color: #004685;
-
-    color: #fff;
 }
 
 </style>
@@ -1013,21 +992,15 @@ textarea.form-control {
 <div class="container-fluid maintenance-page px-3 py-2">
 
 
-    <!-- =====================================================
-         HEADER
-    ====================================================== -->
+    <!-- HEADER -->
 
-    <div
-        class="card maintenance-card bg-white p-4 mb-4 page-header"
-    >
+    <div class="card maintenance-card bg-white p-4 mb-4 page-header">
 
-        <div
-            class="d-flex align-items-center gap-3"
-        >
+        <div class="d-flex align-items-center gap-3">
 
             <a
                 href="index.php"
-                class="btn btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 back-button"
+                class="btn btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                 style="width:42px;height:42px;"
                 title="Kembali"
             >
@@ -1048,13 +1021,10 @@ textarea.form-control {
 
                 </h2>
 
+                <p class="text-muted small m-0 mt-1">
 
-                <p
-                    class="text-muted small m-0 mt-1"
-                >
-
-                    Pilih komponen untuk otomatis mengisi
-                    informasi dan spesifikasi teknis.
+                    Pilih komponen untuk mengambil
+                    informasi komponen secara otomatis.
 
                 </p>
 
@@ -1066,40 +1036,24 @@ textarea.form-control {
 
 
 
-    <!-- =====================================================
-         FORM CARD
-    ====================================================== -->
+    <!-- FORM -->
 
-    <div
-        class="card maintenance-card bg-white mb-4"
-    >
+    <div class="card maintenance-card bg-white mb-4">
 
         <div class="card-body p-4">
 
 
-            <!-- =================================================
-                 ERROR
-            ================================================== -->
-
             <?php if (!empty($error)) : ?>
 
-                <div
-                    class="alert alert-danger border-0 rounded-3 d-flex align-items-start"
-                >
+                <div class="alert alert-danger border-0 rounded-3">
 
-                    <i
-                        class="bi bi-exclamation-triangle-fill me-2 mt-1"
-                    ></i>
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
 
-                    <div>
+                    <strong>Gagal menyimpan data</strong>
 
-                        <strong>Gagal menyimpan data</strong>
+                    <div class="small mt-1">
 
-                        <div class="small mt-1">
-
-                            <?= e($error); ?>
-
-                        </div>
+                        <?= e($error); ?>
 
                     </div>
 
@@ -1107,11 +1061,6 @@ textarea.form-control {
 
             <?php endif; ?>
 
-
-
-            <!-- =================================================
-                 FORM
-            ================================================== -->
 
             <form
                 method="POST"
@@ -1125,7 +1074,6 @@ textarea.form-control {
                     name="simpan_maintenance"
                     value="1"
                 >
-
 
 
                 <!-- =================================================
@@ -1155,16 +1103,18 @@ textarea.form-control {
 
                         <?php if ($q_komponen) : ?>
 
-                            <?php
-                            while (
-                                $k =
-                                mysqli_fetch_assoc(
-                                    $q_komponen
-                                )
-                            ) :
-                            ?>
+                            <?php while ($k = mysqli_fetch_assoc($q_komponen)) : ?>
 
                                 <?php
+
+                                /*
+                                 * JENIS KOMPONEN DIBACA LANGSUNG
+                                 * DARI ARRAY HASIL DATABASE.
+                                 */
+
+                                $jenis_data =
+                                    getJenisKomponen($k);
+
 
                                 $label =
                                     ($k['nama_bagian'] ?? 'Tanpa Nama') .
@@ -1191,35 +1141,13 @@ textarea.form-control {
 
                                     data-namabagian="<?= e($k['nama_bagian'] ?? ''); ?>"
 
-                                    data-kategori="<?= e($k['kategori'] ?? ''); ?>"
+                                    data-jenis-komponen="<?= e($jenis_data); ?>"
 
                                     data-mesin="<?= e($k['nama_mesin'] ?? ''); ?>"
 
                                     data-submesin="<?= e($k['nama_sub_mesin'] ?? ''); ?>"
 
                                     data-lokasi="<?= e($k['lokasi'] ?? ''); ?>"
-
-                                    data-brand="<?= e($k['brand'] ?? ''); ?>"
-
-                                    data-tipe="<?= e($k['tipe'] ?? ''); ?>"
-
-                                    data-pn="<?= e($k['part_number'] ?? ''); ?>"
-
-                                    data-daya="<?= e($k['daya'] ?? ''); ?>"
-
-                                    data-io="<?= e($k['io_address'] ?? ''); ?>"
-
-                                    data-vol="<?= e($k['input_voltage'] ?? ''); ?>"
-
-                                    data-freqin="<?= e($k['frekuensi_input'] ?? ''); ?>"
-
-                                    data-arus="<?= e($k['arus_input'] ?? ''); ?>"
-
-                                    data-out="<?= e($k['output'] ?? ''); ?>"
-
-                                    data-freqout="<?= e($k['frekuensi_output'] ?? ''); ?>"
-
-                                    data-ip="<?= e($k['ip_rating'] ?? ''); ?>"
                                 >
 
                                     <?= e($label); ?>
@@ -1243,9 +1171,7 @@ textarea.form-control {
                 </div>
 
 
-
                 <hr class="my-4 border-light-subtle">
-
 
 
                 <!-- =================================================
@@ -1266,13 +1192,11 @@ textarea.form-control {
                     <div class="row g-3">
 
 
-                        <!-- SERIAL NUMBER -->
+                        <!-- SERIAL -->
 
                         <div class="col-12 col-md-4">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Serial Number (SN)
 
@@ -1282,24 +1206,20 @@ textarea.form-control {
                                 type="text"
                                 name="serial_number"
                                 id="f-sn"
-                                class="form-control rounded-3"
+                                class="form-control rounded-3 auto-field"
                                 readonly
                             >
 
                         </div>
 
 
-
                         <!-- NAMA BAGIAN -->
 
                         <div class="col-12 col-md-4">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Nama Bagian
-
                                 <span class="text-danger">*</span>
 
                             </label>
@@ -1308,7 +1228,7 @@ textarea.form-control {
                                 type="text"
                                 name="nama_bagian"
                                 id="f-namabagian"
-                                class="form-control rounded-3"
+                                class="form-control rounded-3 auto-field"
                                 readonly
                                 required
                             >
@@ -1316,38 +1236,33 @@ textarea.form-control {
                         </div>
 
 
-
-                        <!-- KATEGORI -->
+                        <!-- JENIS KOMPONEN -->
 
                         <div class="col-12 col-md-4">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
-                                Kategori
+                                Jenis Komponen
 
                             </label>
 
                             <input
                                 type="text"
                                 name="kategori"
-                                id="f-kategori"
-                                class="form-control rounded-3"
+                                id="f-jenis-komponen"
+                                class="form-control rounded-3 auto-field"
                                 readonly
+                                placeholder="Jenis komponen akan muncul otomatis"
                             >
 
                         </div>
-
 
 
                         <!-- MESIN -->
 
                         <div class="col-12 col-md-4">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Mesin Induk
 
@@ -1357,21 +1272,18 @@ textarea.form-control {
                                 type="text"
                                 name="nama_mesin"
                                 id="f-mesin"
-                                class="form-control rounded-3"
+                                class="form-control rounded-3 auto-field"
                                 readonly
                             >
 
                         </div>
 
 
-
                         <!-- SUB MESIN -->
 
                         <div class="col-12 col-md-4">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Sub Mesin
 
@@ -1381,21 +1293,18 @@ textarea.form-control {
                                 type="text"
                                 name="nama_sub_mesin"
                                 id="f-submesin"
-                                class="form-control rounded-3"
+                                class="form-control rounded-3 auto-field"
                                 readonly
                             >
 
                         </div>
 
 
-
                         <!-- LOKASI -->
 
                         <div class="col-12 col-md-4">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Lokasi Penempatan
 
@@ -1405,7 +1314,7 @@ textarea.form-control {
                                 type="text"
                                 name="lokasi_penempatan"
                                 id="f-lokasi"
-                                class="form-control rounded-3"
+                                class="form-control rounded-3 auto-field"
                                 readonly
                             >
 
@@ -1416,10 +1325,7 @@ textarea.form-control {
                 </div>
 
 
-
-                <!-- =================================================
-                     FOTO
-                ================================================== -->
+                <!-- FOTO -->
 
                 <div class="mb-4">
 
@@ -1432,19 +1338,16 @@ textarea.form-control {
                     </div>
 
 
-                    <div class="row g-3 align-items-start">
+                    <div class="row g-3">
 
 
                         <div class="col-12 col-md-7">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Foto Dokumentasi / Bukti Maintenance
 
                             </label>
-
 
                             <input
                                 type="file"
@@ -1454,18 +1357,14 @@ textarea.form-control {
                                 accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                             >
 
+                            <div class="form-text">
 
-                            <div
-                                class="form-text mt-2"
-                            >
-
-                                Format JPG, JPEG, PNG,
-                                atau WEBP. Maksimal 5 MB.
+                                Format JPG, PNG, atau WEBP.
+                                Maksimal 5 MB.
 
                             </div>
 
                         </div>
-
 
 
                         <div class="col-12 col-md-5">
@@ -1480,9 +1379,7 @@ textarea.form-control {
                                     id="photo-empty"
                                 >
 
-                                    <i
-                                        class="bi bi-image d-block"
-                                    ></i>
+                                    <i class="bi bi-image d-block"></i>
 
                                     <small>
                                         Preview foto
@@ -1504,7 +1401,6 @@ textarea.form-control {
                                     id="btn-remove-foto"
                                     class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 rounded-circle d-none"
                                     style="width:32px;height:32px;"
-                                    title="Hapus foto"
                                 >
 
                                     <i class="bi bi-x-lg"></i>
@@ -1520,9 +1416,7 @@ textarea.form-control {
                 </div>
 
 
-
                 <hr class="my-4 border-light-subtle">
-
 
 
                 <!-- =================================================
@@ -1540,8 +1434,16 @@ textarea.form-control {
                     </div>
 
 
-                    <div class="row g-3">
+                    <div class="alert alert-info border-0 rounded-3 small">
 
+                        <i class="bi bi-info-circle me-1"></i>
+
+                        Spesifikasi dapat diisi secara manual.
+
+                    </div>
+
+
+                    <div class="row g-3">
 
                         <div class="col-12 col-md-4">
 
@@ -1552,9 +1454,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="brand"
-                                id="f-brand"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['brand'] ?? ''); ?>"
+                                placeholder="Contoh: Danfoss"
                             >
 
                         </div>
@@ -1569,9 +1471,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="tipe"
-                                id="f-tipe"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['tipe'] ?? ''); ?>"
+                                placeholder="Contoh: FC-301"
                             >
 
                         </div>
@@ -1586,9 +1488,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="part_number"
-                                id="f-pn"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['part_number'] ?? ''); ?>"
+                                placeholder="Part Number"
                             >
 
                         </div>
@@ -1603,9 +1505,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="daya"
-                                id="f-daya"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['daya'] ?? ''); ?>"
+                                placeholder="0.55 kW"
                             >
 
                         </div>
@@ -1620,9 +1522,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="io_address"
-                                id="f-io"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['io_address'] ?? ''); ?>"
+                                placeholder="I0.0 / Q0.0"
                             >
 
                         </div>
@@ -1637,9 +1539,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="input_voltage"
-                                id="f-vol"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['input_voltage'] ?? ''); ?>"
+                                placeholder="3x380-480 VAC"
                             >
 
                         </div>
@@ -1654,9 +1556,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="frekuensi_input"
-                                id="f-freqin"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['frekuensi_input'] ?? ''); ?>"
+                                placeholder="50/60 Hz"
                             >
 
                         </div>
@@ -1671,9 +1573,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="arus_input"
-                                id="f-arus"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['arus_input'] ?? ''); ?>"
+                                placeholder="1.5 A"
                             >
 
                         </div>
@@ -1688,9 +1590,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="output"
-                                id="f-out"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['output'] ?? ''); ?>"
+                                placeholder="3x0-Vin"
                             >
 
                         </div>
@@ -1705,9 +1607,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="frekuensi_output"
-                                id="f-freqout"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['frekuensi_output'] ?? ''); ?>"
+                                placeholder="0-590 Hz"
                             >
 
                         </div>
@@ -1722,9 +1624,9 @@ textarea.form-control {
                             <input
                                 type="text"
                                 name="ip_rating"
-                                id="f-ip"
-                                class="form-control rounded-3"
-                                readonly
+                                class="form-control rounded-3 manual-field"
+                                value="<?= e($_POST['ip_rating'] ?? ''); ?>"
+                                placeholder="IP20"
                             >
 
                         </div>
@@ -1734,9 +1636,7 @@ textarea.form-control {
                 </div>
 
 
-
                 <hr class="my-4 border-light-subtle">
-
 
 
                 <!-- =================================================
@@ -1757,16 +1657,11 @@ textarea.form-control {
                     <div class="row g-3">
 
 
-                        <!-- TANGGAL -->
-
                         <div class="col-12 col-md-4">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Tanggal Maintenance
-
                                 <span class="text-danger">*</span>
 
                             </label>
@@ -1782,14 +1677,9 @@ textarea.form-control {
                         </div>
 
 
-
-                        <!-- JENIS -->
-
                         <div class="col-12 col-md-4">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Jenis Maintenance
 
@@ -1800,38 +1690,35 @@ textarea.form-control {
                                 class="form-select rounded-3"
                             >
 
+                                <?php
+                                $jenis_post =
+                                    $_POST['jenis'] ?? 'Preventive';
+                                ?>
+
                                 <option
                                     value="Preventive"
-                                    <?= (($_POST['jenis'] ?? '') === 'Preventive' || empty($_POST['jenis']))
-                                        ? 'selected'
-                                        : ''; ?>
+                                    <?= $jenis_post === 'Preventive' ? 'selected' : ''; ?>
                                 >
                                     Preventive
                                 </option>
 
                                 <option
                                     value="Corrective"
-                                    <?= (($_POST['jenis'] ?? '') === 'Corrective')
-                                        ? 'selected'
-                                        : ''; ?>
+                                    <?= $jenis_post === 'Corrective' ? 'selected' : ''; ?>
                                 >
                                     Corrective
                                 </option>
 
                                 <option
                                     value="Breakdown"
-                                    <?= (($_POST['jenis'] ?? '') === 'Breakdown')
-                                        ? 'selected'
-                                        : ''; ?>
+                                    <?= $jenis_post === 'Breakdown' ? 'selected' : ''; ?>
                                 >
                                     Breakdown
                                 </option>
 
                                 <option
                                     value="Predictive"
-                                    <?= (($_POST['jenis'] ?? '') === 'Predictive')
-                                        ? 'selected'
-                                        : ''; ?>
+                                    <?= $jenis_post === 'Predictive' ? 'selected' : ''; ?>
                                 >
                                     Predictive
                                 </option>
@@ -1841,17 +1728,11 @@ textarea.form-control {
                         </div>
 
 
-
-                        <!-- STATUS -->
-
                         <div class="col-12 col-md-4">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Status Pekerjaan
-
                                 <span class="text-danger">*</span>
 
                             </label>
@@ -1862,29 +1743,28 @@ textarea.form-control {
                                 required
                             >
 
+                                <?php
+                                $status_post =
+                                    $_POST['status'] ?? 'Selesai';
+                                ?>
+
                                 <option
                                     value="Selesai"
-                                    <?= (($_POST['status'] ?? 'Selesai') === 'Selesai')
-                                        ? 'selected'
-                                        : ''; ?>
+                                    <?= $status_post === 'Selesai' ? 'selected' : ''; ?>
                                 >
                                     Selesai
                                 </option>
 
                                 <option
                                     value="Proses"
-                                    <?= (($_POST['status'] ?? '') === 'Proses')
-                                        ? 'selected'
-                                        : ''; ?>
+                                    <?= $status_post === 'Proses' ? 'selected' : ''; ?>
                                 >
                                     Proses
                                 </option>
 
                                 <option
                                     value="Pending"
-                                    <?= (($_POST['status'] ?? '') === 'Pending')
-                                        ? 'selected'
-                                        : ''; ?>
+                                    <?= $status_post === 'Pending' ? 'selected' : ''; ?>
                                 >
                                     Pending
                                 </option>
@@ -1894,14 +1774,9 @@ textarea.form-control {
                         </div>
 
 
-
-                        <!-- TEKNISI -->
-
                         <div class="col-12">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Teknisi / Petugas
 
@@ -1912,23 +1787,17 @@ textarea.form-control {
                                 name="teknisi"
                                 class="form-control rounded-3"
                                 value="<?= e($_POST['teknisi'] ?? ''); ?>"
-                                placeholder="Contoh: Nama Teknisi / Tim Maintenance"
+                                placeholder="Nama Teknisi / Tim Maintenance"
                             >
 
                         </div>
 
 
-
-                        <!-- TINDAKAN -->
-
                         <div class="col-12">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Tindakan Perbaikan / Maintenance
-
                                 <span class="text-danger">*</span>
 
                             </label>
@@ -1944,14 +1813,9 @@ textarea.form-control {
                         </div>
 
 
-
-                        <!-- SPAREPART -->
-
                         <div class="col-12">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Sparepart yang Digunakan / Diganti
 
@@ -1968,14 +1832,9 @@ textarea.form-control {
                         </div>
 
 
-
-                        <!-- CATATAN -->
-
                         <div class="col-12">
 
-                            <label
-                                class="form-label fw-semibold"
-                            >
+                            <label class="form-label fw-semibold">
 
                                 Catatan / Keterangan Tambahan
 
@@ -1995,14 +1854,9 @@ textarea.form-control {
                 </div>
 
 
+                <!-- BUTTON -->
 
-                <!-- =================================================
-                     BUTTON
-                ================================================== -->
-
-                <div
-                    class="border-top pt-4 mt-4 d-flex gap-2 submit-wrapper"
-                >
+                <div class="border-top pt-4 mt-4 d-flex gap-2 submit-wrapper">
 
                     <button
                         type="submit"
@@ -2037,18 +1891,9 @@ textarea.form-control {
 </div>
 
 
-<!-- =========================================================
-     JQUERY
-========================================================= -->
-
 <script
     src="https://code.jquery.com/jquery-3.7.1.min.js"
 ></script>
-
-
-<!-- =========================================================
-     SELECT2
-========================================================= -->
 
 <script
     src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"
@@ -2066,141 +1911,104 @@ document.addEventListener(
            SELECT2
         ===================================================== */
 
-        if (
-            typeof jQuery !== "undefined" &&
-            typeof jQuery.fn.select2 !== "undefined"
-        ) {
+        $('#select-komponen').select2({
 
-            $('#select-komponen').select2({
+            theme: 'bootstrap-5',
 
-                theme: 'bootstrap-5',
+            placeholder:
+                '-- Ketik untuk mencari Komponen / Serial Number --',
 
-                placeholder:
-                    '-- Ketik untuk mencari Komponen / Serial Number --',
+            allowClear: true,
 
-                allowClear: true,
+            width: '100%'
 
-                width: '100%'
-
-            });
-
-
-            /* =============================================
-               SAAT KOMPONEN DIPILIH
-            ============================================= */
-
-            $('#select-komponen').on(
-                'change',
-                function () {
-
-                    const option =
-                        $(this).find(':selected');
-
-
-                    if (
-                        !option ||
-                        !option.val()
-                    ) {
-
-                        clearComponentFields();
-
-                        return;
-                    }
-
-
-                    setField(
-                        '#f-sn',
-                        option.attr('data-sn')
-                    );
-
-                    setField(
-                        '#f-namabagian',
-                        option.attr('data-namabagian')
-                    );
-
-                    setField(
-                        '#f-kategori',
-                        option.attr('data-kategori')
-                    );
-
-                    setField(
-                        '#f-mesin',
-                        option.attr('data-mesin')
-                    );
-
-                    setField(
-                        '#f-submesin',
-                        option.attr('data-submesin')
-                    );
-
-                    setField(
-                        '#f-lokasi',
-                        option.attr('data-lokasi')
-                    );
-
-                    setField(
-                        '#f-brand',
-                        option.attr('data-brand')
-                    );
-
-                    setField(
-                        '#f-tipe',
-                        option.attr('data-tipe')
-                    );
-
-                    setField(
-                        '#f-pn',
-                        option.attr('data-pn')
-                    );
-
-                    setField(
-                        '#f-daya',
-                        option.attr('data-daya')
-                    );
-
-                    setField(
-                        '#f-io',
-                        option.attr('data-io')
-                    );
-
-                    setField(
-                        '#f-vol',
-                        option.attr('data-vol')
-                    );
-
-                    setField(
-                        '#f-freqin',
-                        option.attr('data-freqin')
-                    );
-
-                    setField(
-                        '#f-arus',
-                        option.attr('data-arus')
-                    );
-
-                    setField(
-                        '#f-out',
-                        option.attr('data-out')
-                    );
-
-                    setField(
-                        '#f-freqout',
-                        option.attr('data-freqout')
-                    );
-
-                    setField(
-                        '#f-ip',
-                        option.attr('data-ip')
-                    );
-
-                }
-            );
-
-        }
+        });
 
 
         /* =====================================================
-           PREVIEW FOTO
+           KOMPONEN DIPILIH
+        ===================================================== */
+
+        $('#select-komponen').on(
+            'change',
+            function () {
+
+                const option =
+                    $(this).find(':selected');
+
+
+                if (
+                    !option ||
+                    !option.val()
+                ) {
+
+                    clearComponentFields();
+
+                    return;
+                }
+
+
+                /*
+                 * DATA DARI DATABASE
+                 */
+
+                setField(
+                    '#f-sn',
+                    option.attr('data-sn')
+                );
+
+
+                setField(
+                    '#f-namabagian',
+                    option.attr('data-namabagian')
+                );
+
+
+                /*
+                 * INI YANG DIPERBAIKI.
+                 *
+                 * BUKAN LAGI:
+                 * data-kategori
+                 *
+                 * SEKARANG:
+                 * data-jenis-komponen
+                 */
+
+                const jenisKomponen =
+                    option.attr(
+                        'data-jenis-komponen'
+                    ) || '';
+
+
+                setField(
+                    '#f-jenis-komponen',
+                    jenisKomponen
+                );
+
+
+                setField(
+                    '#f-mesin',
+                    option.attr('data-mesin')
+                );
+
+
+                setField(
+                    '#f-submesin',
+                    option.attr('data-submesin')
+                );
+
+
+                setField(
+                    '#f-lokasi',
+                    option.attr('data-lokasi')
+                );
+
+            }
+        );
+
+
+        /* =====================================================
+           FOTO
         ===================================================== */
 
         const inputFoto =
@@ -2211,11 +2019,6 @@ document.addEventListener(
         const imagePreview =
             document.getElementById(
                 'image-preview'
-            );
-
-        const previewContainer =
-            document.getElementById(
-                'preview-container'
             );
 
         const photoEmpty =
@@ -2248,10 +2051,6 @@ document.addEventListener(
                     }
 
 
-                    /* =========================================
-                       VALIDASI UKURAN
-                    ========================================= */
-
                     if (
                         file.size >
                         5 * 1024 * 1024
@@ -2268,10 +2067,6 @@ document.addEventListener(
                         return;
                     }
 
-
-                    /* =========================================
-                       VALIDASI TYPE
-                    ========================================= */
 
                     const allowedTypes = [
 
@@ -2302,10 +2097,6 @@ document.addEventListener(
                     }
 
 
-                    /* =========================================
-                       PREVIEW
-                    ========================================= */
-
                     const reader =
                         new FileReader();
 
@@ -2316,16 +2107,13 @@ document.addEventListener(
                             imagePreview.src =
                                 event.target.result;
 
-
                             imagePreview.classList.remove(
                                 'd-none'
                             );
 
-
                             photoEmpty.classList.add(
                                 'd-none'
                             );
-
 
                             btnRemoveFoto.classList.remove(
                                 'd-none'
@@ -2345,7 +2133,7 @@ document.addEventListener(
 
 
         /* =====================================================
-           HAPUS PREVIEW FOTO
+           REMOVE FOTO
         ===================================================== */
 
         if (btnRemoveFoto) {
@@ -2369,7 +2157,7 @@ document.addEventListener(
 
 
         /* =====================================================
-           SUBMIT FORM
+           SUBMIT
         ===================================================== */
 
         const form =
@@ -2427,19 +2215,11 @@ document.addEventListener(
                             'Tindakan maintenance wajib diisi.'
                         );
 
-                        if (tindakan) {
-
-                            tindakan.focus();
-
-                        }
+                        tindakan.focus();
 
                         return;
                     }
 
-
-                    /* =========================================
-                       CEGAH DOUBLE SUBMIT
-                    ========================================= */
 
                     if (submitButton) {
 
@@ -2491,35 +2271,13 @@ document.addEventListener(
 
                 '#f-namabagian',
 
-                '#f-kategori',
+                '#f-jenis-komponen',
 
                 '#f-mesin',
 
                 '#f-submesin',
 
-                '#f-lokasi',
-
-                '#f-brand',
-
-                '#f-tipe',
-
-                '#f-pn',
-
-                '#f-daya',
-
-                '#f-io',
-
-                '#f-vol',
-
-                '#f-freqin',
-
-                '#f-arus',
-
-                '#f-out',
-
-                '#f-freqout',
-
-                '#f-ip'
+                '#f-lokasi'
 
             ];
 

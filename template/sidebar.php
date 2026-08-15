@@ -157,17 +157,6 @@ $current_page = $_SERVER['REQUEST_URI'] ?? '';
             <span>Maintenance</span>
         </a>
 
-
-        <!-- LAPORAN -->
-        <a
-            href="/inventory_mesin/laporan/index.php"
-            class="nav-item-link <?= (strpos($current_page, '/laporan/') !== false) ? 'active' : ''; ?>"
-            title="Laporan"
-        >
-            <i class="bi bi-file-earmark-text"></i>
-            <span>Laporan</span>
-        </a>
-
     </div>
 
 

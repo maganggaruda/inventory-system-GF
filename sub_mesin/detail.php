@@ -80,12 +80,32 @@ function badgeStatusMaintenance($status)
    DETAIL SUB MESIN
 ========================================================= */
 
+/*
+ * CATATAN:
+ * Tabel sub_mesin TIDAK memiliki kolom serial_number.
+ *
+ * Sebelumnya query menggunakan:
+ * sm.serial_number
+ *
+ * Hal tersebut menyebabkan:
+ * Unknown column 'sm.serial_number'
+ *
+ * Agar tampilan tetap sama tanpa mengubah struktur database,
+ * digunakan:
+ *
+ * NULL AS serial_number
+ *
+ * sehingga PHP tetap mempunyai key serial_number.
+ */
+
 $stmt = mysqli_prepare($conn, "
     SELECT
         sm.id,
         sm.id_mesin,
         sm.nama_sub_mesin,
-        sm.serial_number,
+
+        NULL AS serial_number,
+
         sm.keterangan,
         sm.gambar,
 
@@ -119,10 +139,16 @@ if (!$stmt) {
     die("Query detail sub mesin gagal: " . mysqli_error($conn));
 }
 
-mysqli_stmt_bind_param($stmt, "i", $id);
+mysqli_stmt_bind_param(
+    $stmt,
+    "i",
+    $id
+);
+
 mysqli_stmt_execute($stmt);
 
 $result = mysqli_stmt_get_result($stmt);
+
 $d = mysqli_fetch_assoc($result);
 
 mysqli_stmt_close($stmt);
@@ -172,7 +198,9 @@ mysqli_stmt_bind_param(
 
 mysqli_stmt_execute($stmt_komponen);
 
-$result_komponen = mysqli_stmt_get_result($stmt_komponen);
+$result_komponen = mysqli_stmt_get_result(
+    $stmt_komponen
+);
 
 $data_komponen = [];
 
@@ -223,7 +251,9 @@ mysqli_stmt_bind_param(
 
 mysqli_stmt_execute($stmt_maintenance);
 
-$result_maintenance = mysqli_stmt_get_result($stmt_maintenance);
+$result_maintenance = mysqli_stmt_get_result(
+    $stmt_maintenance
+);
 
 $data_maintenance = [];
 
@@ -238,7 +268,9 @@ mysqli_stmt_close($stmt_maintenance);
    FOTO SUB MESIN
 ========================================================= */
 
-$nama_gambar_sub = trim($d['gambar'] ?? '');
+$nama_gambar_sub = trim(
+    $d['gambar'] ?? ''
+);
 
 $gambar_sub = "../uploads/sub_mesin/" . $nama_gambar_sub;
 
@@ -260,9 +292,18 @@ $total_maintenance = count($data_maintenance);
    INFORMASI SERIAL NUMBER
 ========================================================= */
 
-$serial_sub_mesin = trim($d['serial_number'] ?? '');
+/*
+ * Karena tabel sub_mesin tidak mempunyai kolom
+ * serial_number, nilainya akan kosong.
+ */
 
-$serial_mesin = trim($d['sn_mesin'] ?? '');
+$serial_sub_mesin = trim(
+    $d['serial_number'] ?? ''
+);
+
+$serial_mesin = trim(
+    $d['sn_mesin'] ?? ''
+);
 
 
 /* =========================================================
@@ -270,6 +311,7 @@ $serial_mesin = trim($d['sn_mesin'] ?? '');
 ========================================================= */
 
 include "../template/header.php";
+
 ?>
 
 
@@ -1928,9 +1970,7 @@ include "../template/header.php";
                             <div class="sub-timeline-card">
 
 
-                                <!-- =================================================
-                                     HEADER TIMELINE
-                                ================================================== -->
+                                <!-- HEADER TIMELINE -->
 
                                 <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
 
@@ -1999,9 +2039,7 @@ include "../template/header.php";
 
 
 
-                                <!-- =================================================
-                                     DETAIL MAINTENANCE
-                                ================================================== -->
+                                <!-- DETAIL MAINTENANCE -->
 
                                 <div class="row g-3 mt-2">
 
@@ -2071,9 +2109,7 @@ include "../template/header.php";
 
 
 
-                                <!-- =================================================
-                                     DETAIL BUTTON
-                                ================================================== -->
+                                <!-- DETAIL BUTTON -->
 
                                 <div class="mt-3">
 

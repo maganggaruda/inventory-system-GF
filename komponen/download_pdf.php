@@ -48,28 +48,48 @@ function imageToDataUri($path)
 $stmt = mysqli_prepare($conn, "
     SELECT 
         k.*,
+
         sm.nama_sub_mesin,
+
         m.nama_mesin,
         m.serial_number AS sn_mesin,
+
         jm.nama_jenis_mesin,
+
         ab.nama_area,
         ab.lokasi
+
     FROM komponen k
+
     LEFT JOIN sub_mesin sm
         ON k.id_sub_mesin = sm.id
+
     LEFT JOIN mesin m
         ON sm.id_mesin = m.id
+
     LEFT JOIN jenis_mesin jm
         ON m.id_jenis_mesin = jm.id
+
     LEFT JOIN area_bagian ab
-        ON jm.id_area = ab.id
+        ON m.id_area = ab.id
+
     WHERE k.id = ?
 ");
 
-mysqli_stmt_bind_param($stmt, "i", $id);
+if (!$stmt) {
+    die("Query komponen gagal: " . mysqli_error($conn));
+}
+
+mysqli_stmt_bind_param(
+    $stmt,
+    "i",
+    $id
+);
+
 mysqli_stmt_execute($stmt);
 
 $result = mysqli_stmt_get_result($stmt);
+
 $komponen = mysqli_fetch_assoc($result);
 
 mysqli_stmt_close($stmt);
@@ -102,14 +122,27 @@ $stmt = mysqli_prepare($conn, "
         rm.*,
         k.nama_bagian,
         k.serial_number
+
     FROM riwayat_maintenance rm
+
     LEFT JOIN komponen k
         ON rm.id_komponen = k.id
+
     WHERE rm.id_komponen = ?
+
     ORDER BY rm.tanggal DESC
 ");
 
-mysqli_stmt_bind_param($stmt, "i", $id);
+if (!$stmt) {
+    die("Query maintenance gagal: " . mysqli_error($conn));
+}
+
+mysqli_stmt_bind_param(
+    $stmt,
+    "i",
+    $id
+);
+
 mysqli_stmt_execute($stmt);
 
 $result = mysqli_stmt_get_result($stmt);
@@ -131,12 +164,33 @@ $kondisi = $komponen['kondisi'] ?? 'Baik';
 $kondisiClass = 'good';
 
 if ($kondisi == 'Perlu Pemeriksaan') {
+
     $kondisiClass = 'warning';
+
 } elseif (
     $kondisi == 'Dalam Perbaikan' ||
     $kondisi == 'Rusak'
 ) {
+
     $kondisiClass = 'danger';
+}
+
+/* =========================================================
+   JENIS KOMPONEN
+========================================================= */
+
+/*
+ * DATA DIAMBIL DARI KOLOM:
+ * jenis_komponen
+ *
+ * BUKAN lagi dari:
+ * kategori
+ */
+
+$jenisKomponen = $komponen['jenis_komponen'] ?? '';
+
+if (trim($jenisKomponen) === '') {
+    $jenisKomponen = '-';
 }
 
 /* =========================================================
@@ -395,8 +449,8 @@ $html .= '
 </tr>
 
 <tr>
-<td class="label">Kategori</td>
-<td>' . e($komponen['kategori'] ?? '-') . '</td>
+<td class="label">Jenis Komponen</td>
+<td>' . e($jenisKomponen) . '</td>
 </tr>
 
 <tr>
@@ -426,43 +480,98 @@ $html .= '
 <table class="table">
 
 <tr>
+
 <td width="25%">Brand / Merk</td>
-<td>' . e($komponen['brand'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['brand'] ?? '-'
+) . '</td>
+
 <td width="25%">Tipe</td>
-<td>' . e($komponen['tipe'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['tipe'] ?? '-'
+) . '</td>
+
 </tr>
 
+
 <tr>
+
 <td>Part Number</td>
-<td>' . e($komponen['part_number'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['part_number'] ?? '-'
+) . '</td>
+
 <td>Daya</td>
-<td>' . e($komponen['daya'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['daya'] ?? '-'
+) . '</td>
+
 </tr>
 
+
 <tr>
+
 <td>IO Address</td>
-<td>' . e($komponen['io_address'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['io_address'] ?? '-'
+) . '</td>
+
 <td>Input Voltage</td>
-<td>' . e($komponen['input_voltage'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['input_voltage'] ?? '-'
+) . '</td>
+
 </tr>
 
+
 <tr>
+
 <td>Frekuensi Input</td>
-<td>' . e($komponen['frekuensi_input'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['frekuensi_input'] ?? '-'
+) . '</td>
+
 <td>Arus Input</td>
-<td>' . e($komponen['arus_input'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['arus_input'] ?? '-'
+) . '</td>
+
 </tr>
 
+
 <tr>
+
 <td>Output</td>
-<td>' . e($komponen['output'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['output'] ?? '-'
+) . '</td>
+
 <td>Frekuensi Output</td>
-<td>' . e($komponen['frekuensi_output'] ?? '-') . '</td>
+
+<td>' . e(
+    $komponen['frekuensi_output'] ?? '-'
+) . '</td>
+
 </tr>
 
+
 <tr>
+
 <td>IP Rating</td>
-<td colspan="3">' . e($komponen['ip_rating'] ?? '-') . '</td>
+
+<td colspan="3">' . e(
+    $komponen['ip_rating'] ?? '-'
+) . '</td>
+
 </tr>
 
 </table>
@@ -475,9 +584,16 @@ $html .= '
 <table class="table">
 
 <tr>
+
 <td>
-' . nl2br(e($komponen['keterangan'] ?? 'Tidak ada keterangan tambahan.')) . '
+' . nl2br(
+    e(
+        $komponen['keterangan']
+        ?? 'Tidak ada keterangan tambahan.'
+    )
+) . '
 </td>
+
 </tr>
 
 </table>
@@ -492,12 +608,31 @@ $html .= '
 <thead>
 
 <tr>
-<th width="30">No</th>
-<th width="80">Tanggal</th>
-<th>Jenis</th>
-<th>Tindakan</th>
-<th>Teknisi</th>
-<th width="75">Status</th>
+
+<th width="30">
+    No
+</th>
+
+<th width="80">
+    Tanggal
+</th>
+
+<th>
+    Jenis
+</th>
+
+<th>
+    Tindakan
+</th>
+
+<th>
+    Teknisi
+</th>
+
+<th width="75">
+    Status
+</th>
+
 </tr>
 
 </thead>
@@ -516,8 +651,11 @@ if (!empty($dataMaintenance)) {
         $class = 'danger';
 
         if ($status == 'Selesai') {
+
             $class = 'good';
+
         } elseif ($status == 'Proses') {
+
             $class = 'warning';
         }
 
@@ -525,13 +663,21 @@ if (!empty($dataMaintenance)) {
 
         if (!empty($m['tanggal'])) {
 
-            $tanggal = date(
-                'd/m/Y H:i',
-                strtotime($m['tanggal'])
+            $timestamp = strtotime(
+                $m['tanggal']
             );
+
+            if ($timestamp !== false) {
+
+                $tanggal = date(
+                    'd/m/Y H:i',
+                    $timestamp
+                );
+            }
         }
 
         $html .= '
+
         <tr>
 
         <td class="center">
@@ -539,41 +685,57 @@ if (!empty($dataMaintenance)) {
         </td>
 
         <td>
-            ' . $tanggal . '
+            ' . e($tanggal) . '
         </td>
 
         <td>
-            ' . e($m['jenis'] ?? '-') . '
+            ' . e(
+                $m['jenis'] ?? '-'
+            ) . '
         </td>
 
         <td>
-            ' . nl2br(e($m['tindakan'] ?? '-')) . '
+            ' . nl2br(
+                e($m['tindakan'] ?? '-')
+            ) . '
         </td>
 
         <td>
-            ' . e($m['teknisi'] ?? '-') . '
+            ' . e(
+                $m['teknisi'] ?? '-'
+            ) . '
         </td>
 
         <td class="center">
+
             <span class="badge ' . $class . '">
+
                 ' . e($status) . '
+
             </span>
+
         </td>
 
         </tr>
+
         ';
     }
 
 } else {
 
     $html .= '
+
     <tr>
 
-        <td colspan="6" class="center">
+        <td
+            colspan="6"
+            class="center"
+        >
             Belum ada riwayat maintenance.
         </td>
 
     </tr>
+
     ';
 }
 
@@ -585,7 +747,10 @@ $html .= '
 
 
 <div class="footer">
-    Inventory & Maintenance System — PT Garudafood Putra Putri Jaya Tbk
+
+    Inventory & Maintenance System —
+    PT Garudafood Putra Putri Jaya Tbk
+
 </div>
 
 
@@ -594,23 +759,47 @@ $html .= '
 </html>
 ';
 
+
 /* =========================================================
    GENERATE PDF
 ========================================================= */
 
 $options = new Options();
 
-$options->set('isHtml5ParserEnabled', true);
-$options->set('isRemoteEnabled', true);
-$options->set('defaultFont', 'DejaVu Sans');
+$options->set(
+    'isHtml5ParserEnabled',
+    true
+);
 
-$dompdf = new Dompdf($options);
+$options->set(
+    'isRemoteEnabled',
+    true
+);
 
-$dompdf->loadHtml($html);
+$options->set(
+    'defaultFont',
+    'DejaVu Sans'
+);
 
-$dompdf->setPaper('A4', 'portrait');
+$dompdf = new Dompdf(
+    $options
+);
+
+$dompdf->loadHtml(
+    $html
+);
+
+$dompdf->setPaper(
+    'A4',
+    'portrait'
+);
 
 $dompdf->render();
+
+
+/* =========================================================
+   NAMA FILE
+========================================================= */
 
 $namaFile = 'Detail_Komponen_' .
     preg_replace(
@@ -620,8 +809,13 @@ $namaFile = 'Detail_Komponen_' .
     ) .
     '.pdf';
 
-$dompdf->stream($namaFile, [
-    'Attachment' => true
-]);
+
+$dompdf->stream(
+    $namaFile,
+    [
+        'Attachment' => true
+    ]
+);
 
 exit;
+?>

@@ -1106,21 +1106,6 @@ $current_file = basename($_SERVER['PHP_SELF'] ?? '');
 
             </a>
 
-
-            <!-- LAPORAN -->
-
-            <a
-                href="/inventory_mesin/laporan/index.php"
-                class="<?= (strpos($current_uri, '/laporan/') !== false) ? 'active' : '' ?>"
-            >
-
-                <i class="bi bi-file-earmark-text"></i>
-
-                <span>Laporan</span>
-
-            </a>
-
-
         </nav>
 
     </aside>
