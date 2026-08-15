@@ -10,6 +10,8 @@ $keyword = isset($_GET['keyword'])
     ? trim($_GET['keyword'])
     : '';
 
+$sql = false;
+
 
 /* =========================================================
    QUERY DATA MESIN
@@ -63,7 +65,7 @@ $query_str = "
    SEARCH CONDITION
 ========================================================= */
 
-if (!empty($keyword)) {
+if ($keyword !== '') {
 
     $query_str .= "
         WHERE
@@ -78,25 +80,26 @@ if (!empty($keyword)) {
 
     $stmt = mysqli_prepare($conn, $query_str);
 
-    if (!$stmt) {
-        die("Query gagal diproses.");
+    if ($stmt) {
+
+        $kw = "%" . $keyword . "%";
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "sssss",
+            $kw,
+            $kw,
+            $kw,
+            $kw,
+            $kw
+        );
+
+        if (mysqli_stmt_execute($stmt)) {
+            $sql = mysqli_stmt_get_result($stmt);
+        }
+
+        mysqli_stmt_close($stmt);
     }
-
-    $kw = "%" . $keyword . "%";
-
-    mysqli_stmt_bind_param(
-        $stmt,
-        "sssss",
-        $kw,
-        $kw,
-        $kw,
-        $kw,
-        $kw
-    );
-
-    mysqli_stmt_execute($stmt);
-
-    $sql = mysqli_stmt_get_result($stmt);
 
 } else {
 
@@ -110,7 +113,7 @@ if (!empty($keyword)) {
    TOTAL DATA
 ========================================================= */
 
-$total_mesin = $sql
+$total_mesin = ($sql)
     ? mysqli_num_rows($sql)
     : 0;
 
@@ -119,85 +122,62 @@ $total_mesin = $sql
 <style>
 
 /* =========================================================
-   PAGE
+   MACHINE PAGE
 ========================================================= */
 
 .machine-page {
     width: 100%;
+    max-width: 100%;
 }
 
 
 /* =========================================================
-   HEADER AREA
+   PAGE HEADER
 ========================================================= */
 
 .machine-page-header {
     position: relative;
-
     background: #ffffff;
-
     border: 1px solid #e5e7eb;
-
     border-radius: 14px;
-
     padding: 20px 22px;
-
     margin-bottom: 20px;
-
-    box-shadow:
-        0 3px 12px rgba(15, 23, 42, .04);
+    box-shadow: 0 3px 12px rgba(15, 23, 42, .04);
+    overflow: hidden;
 }
 
-
-/* garis biru kecil di kiri */
-
 .machine-page-header::before {
-
     content: "";
-
     position: absolute;
-
     left: 0;
     top: 18px;
     bottom: 18px;
-
     width: 4px;
-
     background: linear-gradient(
         180deg,
         #005baa,
         #0076c8
     );
-
     border-radius: 0 5px 5px 0;
 }
 
-
-/* TITLE */
+.machine-page-header-content {
+    min-width: 0;
+}
 
 .machine-page-title {
-
     font-size: 25px;
-
     font-weight: 800;
-
     color: #172033;
-
     margin: 0;
-
     line-height: 1.25;
 }
 
-
-/* SUBTITLE */
-
 .machine-page-subtitle {
-
     color: #64748b;
-
     font-size: 13px;
-
     margin-top: 5px;
+    line-height: 1.5;
 }
 
 
@@ -206,7 +186,6 @@ $total_mesin = $sql
 ========================================================= */
 
 .btn-add-machine {
-
     background: linear-gradient(
         135deg,
         #005baa,
@@ -214,30 +193,20 @@ $total_mesin = $sql
     );
 
     border: none;
-
     color: #fff;
-
     border-radius: 9px;
-
     padding: 10px 16px;
-
     font-size: 13px;
-
     font-weight: 600;
-
     text-decoration: none;
-
-    transition: .2s;
+    transition: .2s ease;
+    white-space: nowrap;
 }
 
 .btn-add-machine:hover {
-
     color: #fff;
-
     transform: translateY(-1px);
-
-    box-shadow:
-        0 7px 18px rgba(0,91,170,.20);
+    box-shadow: 0 7px 18px rgba(0, 91, 170, .20);
 }
 
 
@@ -246,17 +215,11 @@ $total_mesin = $sql
 ========================================================= */
 
 .machine-card {
-
     background: #ffffff;
-
     border: 1px solid #e5e7eb;
-
     border-radius: 14px;
-
     overflow: hidden;
-
-    box-shadow:
-        0 3px 12px rgba(15,23,42,.04);
+    box-shadow: 0 3px 12px rgba(15, 23, 42, .04);
 }
 
 
@@ -265,31 +228,20 @@ $total_mesin = $sql
 ========================================================= */
 
 .machine-card-header {
-
     padding: 17px 20px;
-
     border-bottom: 1px solid #e5e7eb;
-
     background: #ffffff;
 }
 
-
 .machine-card-title {
-
     font-size: 15px;
-
     font-weight: 700;
-
     color: #172033;
 }
 
-
 .machine-card-subtitle {
-
     font-size: 11px;
-
     color: #94a3b8;
-
     margin-top: 3px;
 }
 
@@ -299,59 +251,65 @@ $total_mesin = $sql
 ========================================================= */
 
 .machine-search {
-
     width: 300px;
-
     position: relative;
+    flex-shrink: 0;
 }
 
-
 .machine-search input {
-
     width: 100%;
-
     height: 38px;
-
     border: 1px solid #dbe3ea;
-
     border-radius: 8px;
-
     padding: 8px 12px 8px 36px;
-
     font-size: 12px;
-
     color: #334155;
-
     outline: none;
-
     background: #fff;
-
     transition: .2s;
 }
 
+.machine-search input::placeholder {
+    color: #94a3b8;
+}
 
 .machine-search input:focus {
-
     border-color: #0076c8;
+    box-shadow: 0 0 0 3px rgba(0, 118, 200, .08);
+}
 
-    box-shadow:
-        0 0 0 3px rgba(0,118,200,.08);
+.machine-search i {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 14px;
+    pointer-events: none;
 }
 
 
-.machine-search i {
+/* =========================================================
+   TABLE WRAPPER
+========================================================= */
 
-    position: absolute;
+.machine-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
 
-    left: 13px;
+.machine-table-wrapper::-webkit-scrollbar {
+    height: 7px;
+}
 
-    top: 50%;
+.machine-table-wrapper::-webkit-scrollbar-track {
+    background: #f8fafc;
+}
 
-    transform: translateY(-50%);
-
-    color: #94a3b8;
-
-    font-size: 14px;
+.machine-table-wrapper::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
 }
 
 
@@ -360,67 +318,42 @@ $total_mesin = $sql
 ========================================================= */
 
 .machine-table {
-
     width: 100%;
-
+    min-width: 1080px;
     margin: 0;
-
     border-collapse: separate;
-
     border-spacing: 0;
 }
 
-
 .machine-table thead th {
-
     background: #f8fafc;
-
     color: #475569;
-
     font-size: 10px;
-
     font-weight: 700;
-
     text-transform: uppercase;
-
     letter-spacing: .35px;
-
     padding: 12px 13px;
-
     border-bottom: 1px solid #e5e7eb;
-
     white-space: nowrap;
 }
 
-
 .machine-table tbody td {
-
     padding: 14px 13px;
-
     border-bottom: 1px solid #f1f5f9;
-
     vertical-align: middle;
-
     font-size: 12px;
-
     color: #334155;
 }
 
-
 .machine-table tbody tr {
-
-    transition: .15s;
+    transition: .15s ease;
 }
 
-
 .machine-table tbody tr:hover {
-
     background: #f8fbff;
 }
 
-
 .machine-table tbody tr:last-child td {
-
     border-bottom: none;
 }
 
@@ -430,27 +363,16 @@ $total_mesin = $sql
 ========================================================= */
 
 .machine-icon {
-
     width: 42px;
-
     height: 42px;
-
     border-radius: 10px;
-
     display: flex;
-
     align-items: center;
-
     justify-content: center;
-
     flex-shrink: 0;
-
     background: #eef5ff;
-
     color: #005baa;
-
     border: 1px solid #dcecff;
-
     font-size: 18px;
 }
 
@@ -460,23 +382,17 @@ $total_mesin = $sql
 ========================================================= */
 
 .machine-name {
-
     font-weight: 700;
-
     color: #172033;
-
     font-size: 13px;
-
     line-height: 1.3;
+    max-width: 180px;
+    word-break: break-word;
 }
 
-
 .machine-id {
-
     font-size: 10px;
-
     color: #94a3b8;
-
     margin-top: 3px;
 }
 
@@ -486,22 +402,19 @@ $total_mesin = $sql
 ========================================================= */
 
 .location-name {
-
     font-weight: 600;
-
     color: #334155;
-
     font-size: 12px;
+    max-width: 150px;
+    word-break: break-word;
 }
 
-
 .location-place {
-
     font-size: 10px;
-
     color: #94a3b8;
-
     margin-top: 3px;
+    max-width: 150px;
+    word-break: break-word;
 }
 
 
@@ -510,53 +423,36 @@ $total_mesin = $sql
 ========================================================= */
 
 .type-badge {
-
     display: inline-flex;
-
     align-items: center;
-
     gap: 5px;
-
     background: #eef5ff;
-
     color: #005baa;
-
     border: 1px solid #d8eaff;
-
     padding: 5px 8px;
-
     border-radius: 7px;
-
     font-size: 10px;
-
     font-weight: 600;
-
     white-space: nowrap;
+    max-width: 155px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 
 /* =========================================================
-   SERIAL
+   SERIAL NUMBER
 ========================================================= */
 
 .machine-sn {
-
     display: inline-block;
-
     background: #f8fafc;
-
     border: 1px solid #e2e8f0;
-
     color: #334155;
-
     border-radius: 6px;
-
     padding: 5px 7px;
-
     font-size: 10px;
-
     font-weight: 600;
-
     white-space: nowrap;
 }
 
@@ -566,45 +462,28 @@ $total_mesin = $sql
 ========================================================= */
 
 .machine-stats {
-
     display: flex;
-
     align-items: center;
-
     gap: 4px;
-
     flex-wrap: wrap;
+    max-width: 220px;
 }
 
-
 .machine-stat {
-
     display: inline-flex;
-
     align-items: center;
-
     background: #f8fafc;
-
     border: 1px solid #e5e7eb;
-
     border-radius: 6px;
-
     padding: 4px 6px;
-
     font-size: 9px;
-
     color: #64748b;
-
     white-space: nowrap;
 }
 
-
 .machine-stat strong {
-
     color: #334155;
-
     font-weight: 700;
-
     margin-left: 2px;
 }
 
@@ -614,97 +493,55 @@ $total_mesin = $sql
 ========================================================= */
 
 .machine-actions {
-
     display: flex;
-
     align-items: center;
-
     justify-content: center;
-
     gap: 5px;
 }
 
-
 .machine-action {
-
     width: 32px;
-
     height: 32px;
-
     border-radius: 7px;
-
     display: inline-flex;
-
     align-items: center;
-
     justify-content: center;
-
     text-decoration: none;
-
     border: 1px solid transparent;
-
-    transition: .15s;
-
+    transition: .15s ease;
     font-size: 13px;
 }
 
-
-/* DETAIL */
-
 .machine-action-detail {
-
     color: #005baa;
-
     background: #eef5ff;
-
     border-color: #d8eaff;
 }
 
-
 .machine-action-detail:hover {
-
     background: #005baa;
-
     color: #fff;
 }
 
-
-/* EDIT */
-
 .machine-action-edit {
-
     color: #b76a00;
-
     background: #fff7e8;
-
     border-color: #ffe5b5;
 }
 
-
 .machine-action-edit:hover {
-
     background: #f59e0b;
-
     color: #fff;
 }
 
-
-/* DELETE */
-
 .machine-action-delete {
-
     color: #dc2626;
-
     background: #fff1f2;
-
     border-color: #ffe0e3;
 }
 
-
 .machine-action-delete:hover {
-
     background: #dc2626;
-
     color: #fff;
 }
 
@@ -714,126 +551,222 @@ $total_mesin = $sql
 ========================================================= */
 
 .machine-card-footer {
-
     padding: 11px 18px;
-
     background: #f8fafc;
-
     border-top: 1px solid #e5e7eb;
-
     color: #64748b;
-
     font-size: 10px;
+}
+
+.machine-card-footer strong {
+    color: #334155;
 }
 
 
 /* =========================================================
-   EMPTY
+   EMPTY STATE
 ========================================================= */
 
 .machine-empty {
-
     padding: 65px 20px;
-
     text-align: center;
-
     color: #94a3b8;
 }
 
-
 .machine-empty-icon {
-
     width: 68px;
-
     height: 68px;
-
     margin: 0 auto 15px;
-
     border-radius: 17px;
-
     display: flex;
-
     align-items: center;
-
     justify-content: center;
-
     background: #f1f5f9;
-
     color: #94a3b8;
-
     font-size: 28px;
 }
 
-
 .machine-empty-title {
-
     font-size: 15px;
-
     font-weight: 700;
-
     color: #475569;
 }
 
-
 .machine-empty-text {
-
     font-size: 12px;
+    margin-top: 4px;
+    line-height: 1.6;
+}
 
+
+/* =========================================================
+   ERROR STATE
+========================================================= */
+
+.machine-error {
+    padding: 30px 20px;
+    text-align: center;
+}
+
+.machine-error-icon {
+    font-size: 32px;
+    color: #dc2626;
+    margin-bottom: 10px;
+}
+
+.machine-error-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.machine-error-text {
+    color: #94a3b8;
+    font-size: 11px;
     margin-top: 4px;
 }
 
 
 /* =========================================================
-   RESPONSIVE
+   TABLET
 ========================================================= */
 
-@media (max-width: 1100px) {
+@media (max-width: 992px) {
 
-    .machine-table {
+    .machine-page-header {
+        padding: 18px;
+    }
 
-        min-width: 1050px;
+    .machine-page-title {
+        font-size: 22px;
+    }
+
+    .machine-search {
+        width: 260px;
     }
 
 }
 
 
+/* =========================================================
+   MOBILE
+========================================================= */
+
 @media (max-width: 768px) {
 
     .machine-page-header {
-
-        padding: 18px;
+        padding: 16px;
+        margin-bottom: 15px;
     }
 
+    .machine-page-header::before {
+        top: 14px;
+        bottom: 14px;
+    }
+
+    .machine-page-header-content {
+        width: 100%;
+    }
 
     .machine-page-title {
-
-        font-size: 21px;
+        font-size: 20px;
     }
 
+    .machine-page-subtitle {
+        font-size: 11px;
+        line-height: 1.5;
+    }
 
-    .machine-page-header .btn-add-machine {
-
+    .machine-page-header > div {
         width: 100%;
-
-        text-align: center;
-
-        justify-content: center;
     }
 
+    .btn-add-machine {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 14px;
+    }
 
     .machine-card-header {
-
-        align-items: flex-start !important;
-
-        flex-direction: column;
-
-        gap: 12px;
+        padding: 14px;
     }
 
+    .machine-card-header > div {
+        width: 100%;
+    }
+
+    .machine-card-title {
+        font-size: 14px;
+    }
+
+    .machine-card-subtitle {
+        font-size: 10px;
+        line-height: 1.5;
+    }
 
     .machine-search {
-
         width: 100%;
+    }
+
+    .machine-search input {
+        height: 40px;
+        font-size: 12px;
+    }
+
+    .machine-card-footer {
+        padding: 11px 14px;
+    }
+
+}
+
+
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 576px) {
+
+    .machine-page-title {
+        font-size: 18px;
+    }
+
+    .machine-page-subtitle {
+        font-size: 10px;
+    }
+
+    .machine-page-header {
+        border-radius: 11px;
+        padding: 14px;
+    }
+
+    .machine-card {
+        border-radius: 11px;
+    }
+
+    .machine-card-header {
+        padding: 13px;
+    }
+
+    .machine-empty {
+        padding: 50px 15px;
+    }
+
+    .machine-empty-icon {
+        width: 58px;
+        height: 58px;
+        font-size: 24px;
+    }
+
+    .machine-empty-title {
+        font-size: 14px;
+    }
+
+    .machine-empty-text {
+        font-size: 11px;
+    }
+
+    .machine-card-footer {
+        font-size: 9px;
     }
 
 }
@@ -852,17 +785,15 @@ $total_mesin = $sql
 
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
 
-            <div class="ps-1">
+            <div class="machine-page-header-content ps-1">
 
                 <h2 class="machine-page-title">
                     Data Mesin
                 </h2>
 
                 <div class="machine-page-subtitle">
-
                     Kelola mesin induk, struktur sub mesin,
                     komponen dan riwayat maintenance.
-
                 </div>
 
             </div>
@@ -870,7 +801,7 @@ $total_mesin = $sql
 
             <a
                 href="tambah.php"
-                class="btn btn-add-machine d-inline-flex align-items-center"
+                class="btn-add-machine d-inline-flex align-items-center"
             >
 
                 <i class="bi bi-plus-lg me-2"></i>
@@ -882,7 +813,6 @@ $total_mesin = $sql
         </div>
 
     </div>
-
 
 
     <!-- =====================================================
@@ -899,7 +829,6 @@ $total_mesin = $sql
         <div class="machine-card-header">
 
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-
 
                 <div>
 
@@ -920,7 +849,6 @@ $total_mesin = $sql
                 </div>
 
 
-
                 <!-- SEARCH -->
 
                 <form
@@ -934,26 +862,29 @@ $total_mesin = $sql
                     <input
                         type="text"
                         name="keyword"
-                        value="<?= htmlspecialchars($keyword) ?>"
+                        value="<?= htmlspecialchars(
+                            $keyword,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>"
                         placeholder="Cari nama, serial, area..."
+                        aria-label="Cari mesin"
                     >
 
                 </form>
-
 
             </div>
 
         </div>
 
 
-
         <!-- =================================================
-             TABLE
+             DATA ADA
         ================================================== -->
 
-        <?php if ($total_mesin > 0): ?>
+        <?php if ($sql && $total_mesin > 0): ?>
 
-            <div class="table-responsive">
+            <div class="machine-table-wrapper">
 
                 <table class="machine-table">
 
@@ -968,31 +899,25 @@ $total_mesin = $sql
                                 No
                             </th>
 
-
                             <th width="220">
                                 Mesin
                             </th>
-
 
                             <th width="165">
                                 Area / Lokasi
                             </th>
 
-
                             <th width="165">
                                 Jenis Mesin
                             </th>
-
 
                             <th width="145">
                                 Serial Number
                             </th>
 
-
                             <th>
                                 Struktur
                             </th>
-
 
                             <th
                                 width="120"
@@ -1008,15 +933,21 @@ $total_mesin = $sql
 
                     <tbody>
 
-
                     <?php
 
                     $no = 1;
 
                     while ($d = mysqli_fetch_assoc($sql)):
 
-                    ?>
+                        $machine_id = intval($d['id']);
 
+                        $nama_mesin = $d['nama_mesin'] ?? '-';
+                        $nama_area = $d['nama_area'] ?? '-';
+                        $lokasi = $d['lokasi'] ?? '-';
+                        $jenis_mesin = $d['nama_jenis_mesin'] ?? '-';
+                        $serial_number = $d['serial_number'] ?? '';
+
+                    ?>
 
                         <tr>
 
@@ -1036,7 +967,6 @@ $total_mesin = $sql
                             </td>
 
 
-
                             <!-- =================================
                                  MESIN
                             ================================== -->
@@ -1044,7 +974,6 @@ $total_mesin = $sql
                             <td>
 
                                 <div class="d-flex align-items-center gap-3">
-
 
                                     <div class="machine-icon">
 
@@ -1058,7 +987,9 @@ $total_mesin = $sql
                                         <div class="machine-name">
 
                                             <?= htmlspecialchars(
-                                                $d['nama_mesin'] ?? '-'
+                                                $nama_mesin,
+                                                ENT_QUOTES,
+                                                'UTF-8'
                                             ) ?>
 
                                         </div>
@@ -1068,17 +999,15 @@ $total_mesin = $sql
 
                                             ID Mesin #
 
-                                            <?= intval($d['id']) ?>
+                                            <?= $machine_id ?>
 
                                         </div>
 
                                     </div>
 
-
                                 </div>
 
                             </td>
-
 
 
                             <!-- =================================
@@ -1092,7 +1021,9 @@ $total_mesin = $sql
                                     <i class="bi bi-geo-alt-fill text-danger me-1"></i>
 
                                     <?= htmlspecialchars(
-                                        $d['nama_area'] ?? '-'
+                                        $nama_area,
+                                        ENT_QUOTES,
+                                        'UTF-8'
                                     ) ?>
 
                                 </div>
@@ -1103,13 +1034,14 @@ $total_mesin = $sql
                                     <i class="bi bi-pin-map me-1"></i>
 
                                     <?= htmlspecialchars(
-                                        $d['lokasi'] ?? '-'
+                                        $lokasi,
+                                        ENT_QUOTES,
+                                        'UTF-8'
                                     ) ?>
 
                                 </div>
 
                             </td>
-
 
 
                             <!-- =================================
@@ -1118,18 +1050,26 @@ $total_mesin = $sql
 
                             <td>
 
-                                <span class="type-badge">
+                                <span
+                                    class="type-badge"
+                                    title="<?= htmlspecialchars(
+                                        $jenis_mesin,
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>"
+                                >
 
                                     <i class="bi bi-tags"></i>
 
                                     <?= htmlspecialchars(
-                                        $d['nama_jenis_mesin'] ?? '-'
+                                        $jenis_mesin,
+                                        ENT_QUOTES,
+                                        'UTF-8'
                                     ) ?>
 
                                 </span>
 
                             </td>
-
 
 
                             <!-- =================================
@@ -1138,12 +1078,14 @@ $total_mesin = $sql
 
                             <td>
 
-                                <?php if (!empty($d['serial_number'])): ?>
+                                <?php if ($serial_number !== ''): ?>
 
                                     <span class="machine-sn">
 
                                         <?= htmlspecialchars(
-                                            $d['serial_number']
+                                            $serial_number,
+                                            ENT_QUOTES,
+                                            'UTF-8'
                                         ) ?>
 
                                     </span>
@@ -1151,15 +1093,12 @@ $total_mesin = $sql
                                 <?php else: ?>
 
                                     <span class="text-muted small">
-
                                         -
-
                                     </span>
 
                                 <?php endif; ?>
 
                             </td>
-
 
 
                             <!-- =================================
@@ -1190,7 +1129,6 @@ $total_mesin = $sql
                                     </span>
 
 
-
                                     <!-- KOMPONEN -->
 
                                     <span class="machine-stat">
@@ -1208,7 +1146,6 @@ $total_mesin = $sql
                                         </strong>
 
                                     </span>
-
 
 
                                     <!-- MAINTENANCE -->
@@ -1235,7 +1172,6 @@ $total_mesin = $sql
                             </td>
 
 
-
                             <!-- =================================
                                  AKSI
                             ================================== -->
@@ -1248,9 +1184,10 @@ $total_mesin = $sql
                                     <!-- DETAIL -->
 
                                     <a
-                                        href="detail.php?id=<?= intval($d['id']) ?>"
+                                        href="detail.php?id=<?= $machine_id ?>"
                                         class="machine-action machine-action-detail"
                                         title="Lihat Detail Mesin"
+                                        aria-label="Lihat Detail Mesin"
                                     >
 
                                         <i class="bi bi-eye"></i>
@@ -1258,13 +1195,13 @@ $total_mesin = $sql
                                     </a>
 
 
-
                                     <!-- EDIT -->
 
                                     <a
-                                        href="edit.php?id=<?= intval($d['id']) ?>"
+                                        href="edit.php?id=<?= $machine_id ?>"
                                         class="machine-action machine-action-edit"
                                         title="Edit Mesin"
+                                        aria-label="Edit Mesin"
                                     >
 
                                         <i class="bi bi-pencil-square"></i>
@@ -1272,19 +1209,18 @@ $total_mesin = $sql
                                     </a>
 
 
-
                                     <!-- HAPUS -->
 
                                     <a
-                                        href="hapus.php?id=<?= intval($d['id']) ?>"
+                                        href="hapus.php?id=<?= $machine_id ?>"
                                         class="machine-action machine-action-delete"
                                         title="Hapus Mesin"
-                                        onclick="return confirm(
-                                            'Apakah Anda yakin ingin menghapus mesin <?= htmlspecialchars(
-                                                $d['nama_mesin'] ?? '',
-                                                ENT_QUOTES
-                                            ) ?>?'
-                                        );"
+                                        aria-label="Hapus Mesin"
+                                        onclick="return confirm('Apakah Anda yakin ingin menghapus mesin <?= htmlspecialchars(
+                                            $nama_mesin,
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>?');"
                                     >
 
                                         <i class="bi bi-trash"></i>
@@ -1302,13 +1238,11 @@ $total_mesin = $sql
 
                     <?php endwhile; ?>
 
-
                     </tbody>
 
                 </table>
 
             </div>
-
 
 
             <!-- =================================================
@@ -1318,7 +1252,6 @@ $total_mesin = $sql
             <div class="machine-card-footer">
 
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-
 
                     <div>
 
@@ -1332,12 +1265,16 @@ $total_mesin = $sql
 
                         mesin
 
-                        <?php if (!empty($keyword)): ?>
+                        <?php if ($keyword !== ''): ?>
 
                             untuk pencarian
 
                             <strong>
-                                "<?= htmlspecialchars($keyword) ?>"
+                                "<?= htmlspecialchars(
+                                    $keyword,
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>"
                             </strong>
 
                         <?php endif; ?>
@@ -1345,8 +1282,7 @@ $total_mesin = $sql
                     </div>
 
 
-
-                    <?php if (!empty($keyword)): ?>
+                    <?php if ($keyword !== ''): ?>
 
                         <a
                             href="index.php"
@@ -1361,6 +1297,35 @@ $total_mesin = $sql
 
                     <?php endif; ?>
 
+                </div>
+
+            </div>
+
+
+        <?php elseif (!$sql): ?>
+
+
+            <!-- =================================================
+                 ERROR QUERY
+            ================================================== -->
+
+            <div class="machine-error">
+
+                <div class="machine-error-icon">
+
+                    <i class="bi bi-exclamation-triangle"></i>
+
+                </div>
+
+                <div class="machine-error-title">
+
+                    Data mesin gagal dimuat
+
+                </div>
+
+                <div class="machine-error-text">
+
+                    Terjadi masalah saat mengambil data dari database.
 
                 </div>
 
@@ -1376,7 +1341,6 @@ $total_mesin = $sql
 
             <div class="machine-empty">
 
-
                 <div class="machine-empty-icon">
 
                     <i class="bi bi-gear-wide-connected"></i>
@@ -1386,7 +1350,7 @@ $total_mesin = $sql
 
                 <div class="machine-empty-title">
 
-                    <?php if (!empty($keyword)): ?>
+                    <?php if ($keyword !== ''): ?>
 
                         Mesin tidak ditemukan
 
@@ -1401,12 +1365,16 @@ $total_mesin = $sql
 
                 <div class="machine-empty-text">
 
-                    <?php if (!empty($keyword)): ?>
+                    <?php if ($keyword !== ''): ?>
 
                         Tidak ada mesin yang sesuai dengan pencarian
 
                         <strong>
-                            "<?= htmlspecialchars($keyword) ?>"
+                            "<?= htmlspecialchars(
+                                $keyword,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>"
                         </strong>.
 
                     <?php else: ?>
@@ -1420,8 +1388,7 @@ $total_mesin = $sql
 
                 <div class="mt-3">
 
-
-                    <?php if (!empty($keyword)): ?>
+                    <?php if ($keyword !== ''): ?>
 
                         <a
                             href="index.php"
@@ -1449,18 +1416,14 @@ $total_mesin = $sql
 
                     <?php endif; ?>
 
-
                 </div>
 
-
             </div>
-
 
         <?php endif; ?>
 
 
     </div>
-
 
 </div>
 

@@ -1,6 +1,10 @@
 <?php
 include "../koneksi.php";
 
+/* =========================================================
+   PARAMETER
+========================================================= */
+
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 if ($id <= 0) {
@@ -8,11 +12,33 @@ if ($id <= 0) {
     exit;
 }
 
+
+/* =========================================================
+   HELPER
+========================================================= */
+
+function e($value)
+{
+    return htmlspecialchars(
+        (string)($value ?? ''),
+        ENT_QUOTES,
+        'UTF-8'
+    );
+}
+
+function showValue($value)
+{
+    return !empty(trim((string)$value))
+        ? e($value)
+        : '-';
+}
+
+
 /* =========================================================
    AMBIL DATA KOMPONEN
 ========================================================= */
 
-$stmt = mysqli_prepare($conn, "
+$sql = "
     SELECT 
         k.*,
 
@@ -28,28 +54,46 @@ $stmt = mysqli_prepare($conn, "
 
     FROM komponen k
 
-    LEFT JOIN sub_mesin sm 
+    LEFT JOIN sub_mesin sm
         ON k.id_sub_mesin = sm.id
 
-    LEFT JOIN mesin m 
+    LEFT JOIN mesin m
         ON sm.id_mesin = m.id
 
-    LEFT JOIN jenis_mesin jm 
+    LEFT JOIN jenis_mesin jm
         ON m.id_jenis_mesin = jm.id
 
-    LEFT JOIN area_bagian ab 
+    LEFT JOIN area_bagian ab
         ON m.id_area = ab.id
 
     WHERE k.id = ?
-");
+
+    LIMIT 1
+";
+
+$stmt = mysqli_prepare($conn, $sql);
+
+if (!$stmt) {
+    die("Query gagal dipersiapkan: " . e(mysqli_error($conn)));
+}
 
 mysqli_stmt_bind_param($stmt, "i", $id);
-mysqli_stmt_execute($stmt);
+
+if (!mysqli_stmt_execute($stmt)) {
+    mysqli_stmt_close($stmt);
+    die("Query gagal dijalankan: " . e(mysqli_error($conn)));
+}
 
 $result = mysqli_stmt_get_result($stmt);
+
 $d = mysqli_fetch_assoc($result);
 
 mysqli_stmt_close($stmt);
+
+
+/* =========================================================
+   DATA TIDAK DITEMUKAN
+========================================================= */
 
 if (!$d) {
     header("Location: index.php");
@@ -58,108 +102,102 @@ if (!$d) {
 
 
 /* =========================================================
-   KONDISI KOMPONEN
+   DATA UTAMA
 ========================================================= */
 
-$kondisi = $d['kondisi'] ?? 'Baik';
+$namaKomponen = !empty(trim((string)($d['nama_bagian'] ?? '')))
+    ? $d['nama_bagian']
+    : '-';
 
-$badgeKondisi =
-    'bg-success-subtle text-success border border-success-subtle';
+$snKomponen = !empty(trim((string)($d['serial_number'] ?? '')))
+    ? $d['serial_number']
+    : '-';
 
-$iconKondisi = 'bi-check-circle-fill';
+$snMesin = !empty(trim((string)($d['sn_mesin'] ?? '')))
+    ? $d['sn_mesin']
+    : '-';
 
-if ($kondisi == 'Dalam Perbaikan') {
+$namaMesin = !empty(trim((string)($d['nama_m'] ?? '')))
+    ? $d['nama_m']
+    : (
+        !empty(trim((string)($d['mesin'] ?? '')))
+            ? $d['mesin']
+            : '-'
+    );
 
-    $badgeKondisi =
-        'bg-danger-subtle text-danger border border-danger-subtle';
+$namaSubMesin = !empty(trim((string)($d['nama_s'] ?? '')))
+    ? $d['nama_s']
+    : (
+        !empty(trim((string)($d['sub_mesin'] ?? '')))
+            ? $d['sub_mesin']
+            : '-'
+    );
 
-    $iconKondisi = 'bi-tools';
+$namaJenis = !empty(trim((string)($d['nama_jenis'] ?? '')))
+    ? $d['nama_jenis']
+    : '-';
 
-} elseif ($kondisi == 'Perlu Pemeriksaan') {
+$namaArea = !empty(trim((string)($d['nama_area'] ?? '')))
+    ? $d['nama_area']
+    : '-';
 
-    $badgeKondisi =
-        'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+$lokasi = !empty(trim((string)($d['lokasi_aktual'] ?? '')))
+    ? $d['lokasi_aktual']
+    : (
+        !empty(trim((string)($d['lokasi'] ?? '')))
+            ? $d['lokasi']
+            : '-'
+    );
 
-    $iconKondisi = 'bi-exclamation-circle-fill';
-
-} elseif ($kondisi == 'Rusak') {
-
-    $badgeKondisi =
-        'bg-danger-subtle text-danger border border-danger-subtle';
-
-    $iconKondisi = 'bi-x-circle-fill';
-}
+$kondisi = !empty(trim((string)($d['kondisi'] ?? '')))
+    ? $d['kondisi']
+    : 'Baik';
 
 
 /* =========================================================
-   DATA TAMPILAN
+   STATUS KONDISI
 ========================================================= */
 
-$namaKomponen =
-    !empty($d['nama_bagian'])
-        ? $d['nama_bagian']
-        : '-';
+$badgeKondisi = 'status-good';
+$iconKondisi = 'bi-check-circle-fill';
 
-$snKomponen =
-    !empty($d['serial_number'])
-        ? $d['serial_number']
-        : '-';
+if ($kondisi === 'Dalam Perbaikan') {
 
-$snMesin =
-    !empty($d['sn_mesin'])
-        ? $d['sn_mesin']
-        : '-';
+    $badgeKondisi = 'status-danger';
+    $iconKondisi = 'bi-tools';
 
-$namaMesin =
-    !empty($d['nama_m'])
-        ? $d['nama_m']
-        : (
-            !empty($d['mesin'])
-                ? $d['mesin']
-                : '-'
-        );
+} elseif ($kondisi === 'Perlu Pemeriksaan') {
 
-$namaSubMesin =
-    !empty($d['nama_s'])
-        ? $d['nama_s']
-        : (
-            !empty($d['sub_mesin'])
-                ? $d['sub_mesin']
-                : '-'
-        );
+    $badgeKondisi = 'status-warning';
+    $iconKondisi = 'bi-exclamation-circle-fill';
 
-$namaJenis =
-    !empty($d['nama_jenis'])
-        ? $d['nama_jenis']
-        : '-';
+} elseif ($kondisi === 'Rusak') {
 
-$namaArea =
-    !empty($d['nama_area'])
-        ? $d['nama_area']
-        : '-';
-
-$lokasi =
-    !empty($d['lokasi_aktual'])
-        ? $d['lokasi_aktual']
-        : (
-            !empty($d['lokasi'])
-                ? $d['lokasi']
-                : '-'
-        );
+    $badgeKondisi = 'status-danger';
+    $iconKondisi = 'bi-x-circle-fill';
+}
 
 
 /* =========================================================
    FOTO KOMPONEN
 ========================================================= */
 
-$gambar_path =
-    "../uploads/komponen/" .
-    ($d['gambar'] ?? '');
+$namaFileGambar = trim((string)($d['gambar'] ?? ''));
+
+$gambar_path = "../uploads/komponen/" . basename($namaFileGambar);
 
 $ada_gambar =
-    !empty($d['gambar']) &&
+    !empty($namaFileGambar) &&
     file_exists($gambar_path);
 
+$gambar_url = $ada_gambar
+    ? $gambar_path
+    : '';
+
+
+/* =========================================================
+   HEADER
+========================================================= */
 
 include "../template/header.php";
 ?>
@@ -168,19 +206,24 @@ include "../template/header.php";
 <style>
 
 /* =========================================================
-   DETAIL KOMPONEN
+   DETAIL COMPONENT PAGE
 ========================================================= */
 
 .detail-component-page {
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-bottom: 20px;
 }
 
 
 /* =========================================================
-   HEADER ATAS
+   HERO
 ========================================================= */
 
 .detail-hero {
+    width: 100%;
+    box-sizing: border-box;
 
     background:
         linear-gradient(
@@ -189,155 +232,110 @@ include "../template/header.php";
             #f7fbff 100%
         );
 
-    border:
-        1px solid #e4eaf2;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
 
-    border-radius:
-        16px;
-
-    padding:
-        16px 20px;
+    padding: 16px 20px;
 
     box-shadow:
-        0 4px 15px rgba(15, 23, 42, .04);
+        0 4px 18px rgba(15, 23, 42, .045);
 }
-
 
 .detail-hero-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        space-between;
-
-    gap:
-        15px;
-
-    flex-wrap:
-        wrap;
+    gap: 15px;
+    flex-wrap: wrap;
 }
-
 
 .detail-hero-left {
+    display: flex;
+    align-items: center;
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        12px;
+    gap: 12px;
+    min-width: 0;
 }
-
 
 .detail-back {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
 
-    width:
-        40px;
+    border-radius: 10px;
 
-    height:
-        40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 
-    border-radius:
-        10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
 
-    display:
-        inline-flex;
+    color: #475569;
 
-    align-items:
-        center;
+    text-decoration: none;
 
-    justify-content:
-        center;
-
-    background:
-        #f8fafc;
-
-    border:
-        1px solid #e2e8f0;
-
-    color:
-        #475569;
-
-    text-decoration:
-        none;
-
-    transition:
-        .2s;
+    transition: all .2s ease;
 }
-
 
 .detail-back:hover {
+    background: #005baa;
+    border-color: #005baa;
+    color: #ffffff;
 
-    background:
-        #005baa;
-
-    border-color:
-        #005baa;
-
-    color:
-        #fff;
+    transform: translateX(-2px);
 }
 
+.detail-title-wrapper {
+    min-width: 0;
+}
 
 .detail-page-title {
+    font-size: 21px;
+    font-weight: 800;
 
-    font-size:
-        21px;
+    color: #172033;
 
-    font-weight:
-        800;
+    margin: 0;
+    line-height: 1.3;
 
-    color:
-        #172033;
-
-    margin:
-        0;
+    word-break: break-word;
 }
 
-
 .detail-page-subtitle {
+    font-size: 12px;
 
-    font-size:
-        12px;
+    color: #94a3b8;
 
-    color:
-        #94a3b8;
+    margin-top: 4px;
 
-    margin-top:
-        3px;
+    line-height: 1.5;
 }
 
 
 /* =========================================================
-   ACTION HEADER
+   HEADER ACTION
 ========================================================= */
 
 .detail-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 
-    display:
-        flex;
-
-    gap:
-        8px;
-
-    flex-wrap:
-        wrap;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
-
 .detail-header-actions .btn {
+    border-radius: 9px;
 
-    border-radius:
-        8px;
+    font-size: 12px;
+    font-weight: 700;
 
-    font-weight:
-        600;
+    min-height: 34px;
+
+    white-space: nowrap;
 }
 
 
@@ -346,18 +344,17 @@ include "../template/header.php";
 ========================================================= */
 
 .detail-main-card {
+    width: 100%;
+    max-width: 100%;
 
-    background:
-        #ffffff;
+    box-sizing: border-box;
 
-    border:
-        1px solid #e4eaf2;
+    background: #ffffff;
 
-    border-radius:
-        16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
 
-    overflow:
-        hidden;
+    overflow: hidden;
 
     box-shadow:
         0 4px 18px rgba(15, 23, 42, .05);
@@ -369,38 +366,49 @@ include "../template/header.php";
 ========================================================= */
 
 .detail-section {
+    width: 100%;
+    max-width: 100%;
 
-    background:
-        #ffffff;
+    box-sizing: border-box;
 
-    border:
-        1px solid #e8edf3;
+    background: #ffffff;
 
-    border-radius:
-        14px;
+    border: 1px solid #e5eaf0;
+    border-radius: 14px;
 
-    overflow:
-        hidden;
+    overflow: hidden;
 }
-
 
 .detail-section-header {
+    background: #f8fafc;
 
-    background:
-        #f8fafc;
+    border-bottom: 1px solid #e8edf3;
 
-    border-bottom:
-        1px solid #e8edf3;
+    padding: 12px 15px;
 
-    padding:
-        13px 16px;
+    min-height: 44px;
+
+    box-sizing: border-box;
 }
 
+.detail-section-title {
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    font-size: 13px;
+    font-weight: 800;
+
+    color: #1e293b;
+}
+
+.detail-section-title i {
+    font-size: 15px;
+}
 
 .detail-section-body {
-
-    padding:
-        16px;
+    padding: 15px;
 }
 
 
@@ -409,6 +417,12 @@ include "../template/header.php";
 ========================================================= */
 
 .detail-photo {
+    position: relative;
+
+    width: 100%;
+
+    min-height: 290px;
+    max-height: 360px;
 
     background:
         linear-gradient(
@@ -417,250 +431,284 @@ include "../template/header.php";
             #eef4fa
         );
 
-    border:
-        1px solid #e3eaf2;
+    border: 1px solid #e3eaf2;
+    border-radius: 12px;
 
-    border-radius:
-        14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    min-height:
-        280px;
+    overflow: hidden;
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    overflow:
-        hidden;
+    box-sizing: border-box;
 }
 
+.detail-photo.has-image {
+    cursor: zoom-in;
+}
 
 .detail-photo img {
+    display: block;
 
-    max-width:
-        100%;
+    width: 100%;
+    height: 100%;
 
-    max-height:
-        300px;
+    max-height: 360px;
 
-    object-fit:
-        contain;
+    object-fit: contain;
 
-    transition:
-        transform .25s ease;
+    padding: 8px;
+
+    transition: transform .25s ease;
 }
 
+.detail-photo.has-image:hover img {
+    transform: scale(1.025);
+}
 
-.detail-photo img:hover {
+.photo-zoom-label {
+    position: absolute;
 
-    transform:
-        scale(1.03);
+    right: 10px;
+    bottom: 10px;
+
+    background: rgba(15, 23, 42, .72);
+
+    color: #ffffff;
+
+    padding: 5px 8px;
+
+    border-radius: 7px;
+
+    font-size: 10px;
+    font-weight: 600;
+
+    opacity: 0;
+
+    transition: .2s;
+
+    pointer-events: none;
+}
+
+.detail-photo.has-image:hover .photo-zoom-label {
+    opacity: 1;
+}
+
+.photo-empty {
+    text-align: center;
+
+    color: #94a3b8;
+
+    padding: 30px 15px;
+}
+
+.photo-empty i {
+    font-size: 48px;
+
+    opacity: .25;
+
+    display: block;
+
+    margin-bottom: 8px;
 }
 
 
 /* =========================================================
-   INFO
+   INFO ROW
 ========================================================= */
 
 .info-row {
+    display: flex;
+    align-items: flex-start;
 
-    display:
-        flex;
+    gap: 15px;
 
-    align-items:
-        flex-start;
+    padding: 11px 0;
 
-    gap:
-        15px;
-
-    padding:
-        11px 0;
-
-    border-bottom:
-        1px dashed #e5e7eb;
+    border-bottom: 1px dashed #e5e7eb;
 }
 
+.info-row:first-child {
+    padding-top: 2px;
+}
 
 .info-row:last-child {
-
-    border-bottom:
-        0;
+    border-bottom: 0;
+    padding-bottom: 2px;
 }
-
 
 .info-label {
+    width: 145px;
+    min-width: 145px;
 
-    width:
-        145px;
+    color: #64748b;
 
-    min-width:
-        145px;
+    font-size: 12px;
+    font-weight: 500;
 
-    color:
-        #64748b;
-
-    font-size:
-        12px;
-
-    font-weight:
-        500;
+    line-height: 1.5;
 }
-
 
 .info-value {
+    flex: 1;
 
-    flex:
-        1;
+    min-width: 0;
 
-    color:
-        #172033;
+    color: #172033;
 
-    font-size:
-        13px;
+    font-size: 13px;
+    font-weight: 600;
 
-    font-weight:
-        600;
+    line-height: 1.5;
 
-    word-break:
-        break-word;
-}
-
-
-.code-badge {
-
-    display:
-        inline-flex;
-
-    align-items:
-        center;
-
-    gap:
-        7px;
-
-    background:
-        #f8fafc;
-
-    border:
-        1px solid #dbe3ec;
-
-    border-radius:
-        7px;
-
-    padding:
-        5px 9px;
-
-    color:
-        #334155;
-
-    font-family:
-        monospace;
-
-    font-size:
-        12px;
-}
-
-
-.status-badge {
-
-    display:
-        inline-flex;
-
-    align-items:
-        center;
-
-    gap:
-        7px;
-
-    padding:
-        7px 11px;
-
-    border-radius:
-        8px;
-
-    font-size:
-        12px;
-
-    font-weight:
-        700;
+    word-break: break-word;
 }
 
 
 /* =========================================================
-   SPESIFIKASI
+   CODE BADGE
+========================================================= */
+
+.code-badge {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 7px;
+
+    max-width: 100%;
+
+    background: #f8fafc;
+
+    border: 1px solid #dbe3ec;
+
+    border-radius: 7px;
+
+    padding: 5px 9px;
+
+    color: #334155;
+
+    font-family: monospace;
+
+    font-size: 12px;
+
+    word-break: break-all;
+
+    box-sizing: border-box;
+}
+
+.code-badge i {
+    flex-shrink: 0;
+}
+
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 7px 11px;
+
+    border-radius: 8px;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    line-height: 1.2;
+}
+
+.status-good {
+    background: #dcfce7;
+    color: #15803d;
+
+    border: 1px solid #bbf7d0;
+}
+
+.status-warning {
+    background: #fef3c7;
+    color: #a16207;
+
+    border: 1px solid #fde68a;
+}
+
+.status-danger {
+    background: #fee2e2;
+    color: #b91c1c;
+
+    border: 1px solid #fecaca;
+}
+
+
+/* =========================================================
+   SPECIFICATION
 ========================================================= */
 
 .spec-grid {
-
-    display:
-        grid;
+    display: grid;
 
     grid-template-columns:
-        repeat(2, 1fr);
+        repeat(2, minmax(0, 1fr));
 
-    gap:
-        10px;
+    gap: 10px;
+
+    width: 100%;
 }
-
 
 .spec-item {
+    min-width: 0;
 
-    background:
-        #f8fafc;
+    background: #f8fafc;
 
-    border:
-        1px solid #e8edf3;
+    border: 1px solid #e8edf3;
 
-    border-radius:
-        10px;
+    border-radius: 10px;
 
-    padding:
-        12px;
+    padding: 11px 12px;
 
-    min-height:
-        72px;
+    min-height: 70px;
+
+    box-sizing: border-box;
+
+    transition: all .2s ease;
 }
 
+.spec-item:hover {
+    border-color: #cbd5e1;
+    background: #f5f9fd;
+}
 
 .spec-label {
+    color: #64748b;
 
-    color:
-        #64748b;
+    font-size: 10px;
+    font-weight: 500;
 
-    font-size:
-        11px;
+    margin-bottom: 5px;
 
-    margin-bottom:
-        5px;
+    line-height: 1.4;
 }
 
-
 .spec-value {
+    color: #172033;
 
-    color:
-        #172033;
+    font-size: 13px;
+    font-weight: 700;
 
-    font-size:
-        13px;
+    line-height: 1.5;
 
-    font-weight:
-        600;
-
-    word-break:
-        break-word;
+    word-break: break-word;
 }
 
 
 /* =========================================================
-   HIERARKI
+   HIERARCHY
 ========================================================= */
 
 .hierarchy-box {
-
     background:
         linear-gradient(
             135deg,
@@ -668,163 +716,115 @@ include "../template/header.php";
             #f1f7fd
         );
 
-    border:
-        1px solid #dce9f5;
+    border: 1px solid #dce9f5;
 
-    border-radius:
-        12px;
+    border-radius: 12px;
 
-    padding:
-        14px;
+    padding: 14px;
 }
-
 
 .hierarchy-item {
+    position: relative;
 
-    position:
-        relative;
-
-    padding-left:
-        28px;
-
-    padding-bottom:
-        13px;
+    padding-left: 30px;
+    padding-bottom: 15px;
 }
-
 
 .hierarchy-item:last-child {
-
-    padding-bottom:
-        0;
+    padding-bottom: 0;
 }
-
 
 .hierarchy-item:not(:last-child)::before {
+    content: "";
 
-    content:
-        "";
+    position: absolute;
 
-    position:
-        absolute;
+    left: 9px;
+    top: 22px;
 
-    left:
-        9px;
+    width: 1px;
 
-    top:
-        22px;
+    height: calc(100% - 8px);
 
-    width:
-        1px;
-
-    height:
-        calc(100% - 8px);
-
-    background:
-        #cbd5e1;
+    background: #cbd5e1;
 }
-
 
 .hierarchy-icon {
+    position: absolute;
 
-    position:
-        absolute;
+    left: 0;
+    top: 1px;
 
-    left:
-        0;
+    width: 20px;
+    height: 20px;
 
-    top:
-        1px;
+    border-radius: 50%;
 
-    width:
-        19px;
+    background: #ffffff;
 
-    height:
-        19px;
+    border: 2px solid #0d6efd;
 
-    border-radius:
-        50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    background:
-        #ffffff;
+    font-size: 8px;
 
-    border:
-        2px solid #0d6efd;
+    color: #0d6efd;
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    font-size:
-        8px;
-
-    color:
-        #0d6efd;
+    z-index: 1;
 }
-
 
 .hierarchy-label {
+    display: block;
 
-    display:
-        block;
+    color: #64748b;
 
-    color:
-        #64748b;
+    font-size: 10px;
 
-    font-size:
-        10px;
+    margin-bottom: 2px;
 
-    margin-bottom:
-        2px;
+    line-height: 1.3;
 }
 
-
 .hierarchy-value {
+    display: block;
 
-    color:
-        #172033;
+    color: #172033;
 
-    font-size:
-        12px;
+    font-size: 12px;
+    font-weight: 700;
 
-    font-weight:
-        700;
+    line-height: 1.5;
+
+    word-break: break-word;
 }
 
 
 /* =========================================================
-   CATATAN
+   NOTE
 ========================================================= */
 
 .note-box {
+    background: #f8fafc;
 
-    background:
-        #f8fafc;
+    border: 1px solid #e5eaf0;
 
-    border:
-        1px solid #e5eaf0;
+    border-radius: 12px;
 
-    border-radius:
-        12px;
+    padding: 14px;
 
-    padding:
-        15px;
+    color: #475569;
 
-    color:
-        #475569;
+    font-size: 13px;
 
-    font-size:
-        13px;
+    line-height: 1.7;
 
-    line-height:
-        1.7;
+    min-height: 80px;
 
-    min-height:
-        80px;
+    word-break: break-word;
+
+    box-sizing: border-box;
 }
 
 
@@ -833,99 +833,302 @@ include "../template/header.php";
 ========================================================= */
 
 .detail-footer {
+    background: #f8fafc;
 
-    background:
-        #f8fafc;
+    border-top: 1px solid #e5e7eb;
 
-    border-top:
-        1px solid #e5e7eb;
+    padding: 12px 16px;
 
-    padding:
-        13px 16px;
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 10px;
+
+    flex-wrap: wrap;
+
+    box-sizing: border-box;
 }
 
 
 /* =========================================================
-   RESPONSIVE
+   MODAL FOTO
 ========================================================= */
 
-@media (max-width: 767px) {
+.photo-modal-image {
+    max-width: 100%;
+    max-height: 78vh;
+
+    object-fit: contain;
+
+    border-radius: 8px;
+}
+
+.photo-modal .modal-content {
+    background: #0f172a;
+
+    border: 0;
+
+    border-radius: 14px;
+
+    overflow: hidden;
+}
+
+.photo-modal .modal-header {
+    border-bottom:
+        1px solid rgba(255, 255, 255, .1);
+
+    color: #ffffff;
+}
+
+.photo-modal .btn-close {
+    filter: invert(1);
+}
+
+
+/* =========================================================
+   IMPORTANT LAYOUT FIX
+========================================================= */
+
+@media (min-width: 769px) {
+
+    .detail-component-page {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .detail-component-page .row {
+        width: auto !important;
+        max-width: none !important;
+    }
+
+}
+
+
+/* =========================================================
+   TABLET
+========================================================= */
+
+@media (max-width: 991.98px) {
 
     .detail-hero {
-
-        padding:
-            14px;
-
+        padding: 15px;
     }
-
 
     .detail-page-title {
-
-        font-size:
-            18px;
-
+        font-size: 19px;
     }
-
-
-    .detail-page-subtitle {
-
-        font-size:
-            11px;
-
-    }
-
-
-    .detail-header-actions {
-
-        width:
-            100%;
-
-    }
-
-
-    .detail-header-actions .btn {
-
-        flex:
-            1;
-
-    }
-
-
-    .spec-grid {
-
-        grid-template-columns:
-            1fr;
-
-    }
-
-
-    .info-row {
-
-        display:
-            block;
-
-    }
-
-
-    .info-label {
-
-        width:
-            auto;
-
-        min-width:
-            auto;
-
-        margin-bottom:
-            4px;
-
-    }
-
 
     .detail-photo {
+        min-height: 250px;
+    }
 
-        min-height:
-            220px;
+}
 
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 768px) {
+
+    .detail-component-page {
+        width: 100% !important;
+        max-width: 100% !important;
+
+        margin: 0 !important;
+
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+
+        box-sizing: border-box;
+    }
+
+    .detail-hero {
+        border-radius: 12px;
+
+        padding: 13px;
+
+        margin-bottom: 12px !important;
+    }
+
+    .detail-hero-inner {
+        align-items: flex-start;
+    }
+
+    .detail-hero-left {
+        width: 100%;
+    }
+
+    .detail-back {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+
+        border-radius: 9px;
+    }
+
+    .detail-page-title {
+        font-size: 17px;
+    }
+
+    .detail-page-subtitle {
+        font-size: 10px;
+        margin-top: 3px;
+    }
+
+    .detail-header-actions {
+        width: 100%;
+
+        display: grid;
+
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .detail-header-actions .btn {
+        width: 100%;
+
+        justify-content: center;
+
+        display: inline-flex;
+
+        align-items: center;
+
+        min-height: 38px;
+    }
+
+    .detail-main-card {
+        border-radius: 12px;
+    }
+
+    .detail-main-card > .p-3 {
+        padding: 12px !important;
+    }
+
+    .detail-section {
+        border-radius: 11px;
+    }
+
+    .detail-section-header {
+        padding: 11px 12px;
+    }
+
+    .detail-section-body {
+        padding: 12px;
+    }
+
+    .detail-photo {
+        min-height: 220px;
+        max-height: 280px;
+    }
+
+    .detail-photo img {
+        max-height: 280px;
+    }
+
+    .info-row {
+        display: block;
+
+        padding: 10px 0;
+    }
+
+    .info-row:first-child {
+        padding-top: 2px;
+    }
+
+    .info-label {
+        width: auto;
+        min-width: auto;
+
+        margin-bottom: 4px;
+
+        font-size: 11px;
+    }
+
+    .info-value {
+        font-size: 13px;
+    }
+
+    .spec-grid {
+        grid-template-columns: 1fr;
+
+        gap: 8px;
+    }
+
+    .spec-item {
+        min-height: auto;
+
+        padding: 10px 11px;
+    }
+
+    .spec-label {
+        font-size: 10px;
+    }
+
+    .spec-value {
+        font-size: 12px;
+    }
+
+    .hierarchy-box {
+        padding: 12px;
+    }
+
+    .hierarchy-item {
+        padding-left: 28px;
+        padding-bottom: 14px;
+    }
+
+    .hierarchy-value {
+        font-size: 12px;
+    }
+
+    .note-box {
+        font-size: 12px;
+
+        padding: 12px;
+    }
+
+    .detail-footer {
+        padding: 11px 12px;
+    }
+
+    .detail-footer .btn {
+        width: 100%;
+    }
+
+}
+
+
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 400px) {
+
+    .detail-header-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-page-title {
+        font-size: 16px;
+    }
+
+    .detail-page-subtitle {
+        font-size: 9px;
+    }
+
+    .detail-photo {
+        min-height: 190px;
+    }
+
+    .status-badge {
+        font-size: 11px;
+
+        padding: 6px 9px;
     }
 
 }
@@ -933,11 +1136,15 @@ include "../template/header.php";
 </style>
 
 
+<!-- =========================================================
+     DETAIL COMPONENT PAGE
+========================================================= -->
+
 <div class="container-fluid p-0 detail-component-page">
 
 
     <!-- =====================================================
-         HEADER ATAS
+         HEADER
     ====================================================== -->
 
     <div class="detail-hero mb-3">
@@ -952,7 +1159,8 @@ include "../template/header.php";
                 <a
                     href="index.php"
                     class="detail-back"
-                    title="Kembali"
+                    title="Kembali ke daftar komponen"
+                    aria-label="Kembali"
                 >
 
                     <i class="bi bi-arrow-left"></i>
@@ -960,19 +1168,14 @@ include "../template/header.php";
                 </a>
 
 
-                <div>
+                <div class="detail-title-wrapper">
 
                     <h2 class="detail-page-title">
-
                         Detail Komponen
-
                     </h2>
 
-
                     <div class="detail-page-subtitle">
-
                         Informasi teknis, spesifikasi dan status komponen
-
                     </div>
 
                 </div>
@@ -980,18 +1183,15 @@ include "../template/header.php";
             </div>
 
 
-
             <!-- KANAN -->
 
             <div class="detail-header-actions">
-
-
-                <!-- DOWNLOAD PDF -->
 
                 <a
                     href="download_pdf.php?id=<?= intval($d['id']) ?>"
                     class="btn btn-danger btn-sm px-3"
                     target="_blank"
+                    rel="noopener"
                 >
 
                     <i class="bi bi-file-earmark-pdf me-1"></i>
@@ -1000,9 +1200,6 @@ include "../template/header.php";
 
                 </a>
 
-
-
-                <!-- EDIT -->
 
                 <a
                     href="edit.php?id=<?= intval($d['id']) ?>"
@@ -1022,7 +1219,6 @@ include "../template/header.php";
     </div>
 
 
-
     <!-- =====================================================
          MAIN CARD
     ====================================================== -->
@@ -1031,14 +1227,14 @@ include "../template/header.php";
 
         <div class="p-3 p-md-4">
 
-            <div class="row g-4">
+            <div class="row g-3 g-md-4">
 
 
                 <!-- =================================================
                      KOLOM KIRI
                 ================================================== -->
 
-                <div class="col-xl-5 col-lg-5">
+                <div class="col-12 col-lg-5 col-xl-5">
 
 
                     <!-- FOTO -->
@@ -1047,14 +1243,12 @@ include "../template/header.php";
 
                         <div class="detail-section-header">
 
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="detail-section-title">
 
                                 <i class="bi bi-image text-primary"></i>
 
-                                <span class="fw-bold small">
-
+                                <span>
                                     Foto Komponen
-
                                 </span>
 
                             </div>
@@ -1064,56 +1258,69 @@ include "../template/header.php";
 
                         <div class="detail-section-body">
 
-                            <div class="detail-photo">
+                            <?php if ($ada_gambar): ?>
 
-                                <?php if ($ada_gambar): ?>
+                                <div
+                                    class="detail-photo has-image"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalFoto"
+                                    title="Klik untuk memperbesar foto"
+                                >
 
                                     <img
-                                        src="<?= htmlspecialchars($gambar_path) ?>"
-                                        alt="Foto <?= htmlspecialchars($namaKomponen) ?>"
-                                        class="img-fluid rounded"
+                                        src="<?= e($gambar_url) ?>"
+                                        alt="Foto <?= e($namaKomponen) ?>"
+                                        loading="lazy"
                                     >
 
-                                <?php else: ?>
 
-                                    <div class="text-center text-muted">
+                                    <div class="photo-zoom-label">
 
-                                        <i
-                                            class="bi bi-image fs-1 opacity-25 d-block mb-2"
-                                        ></i>
+                                        <i class="bi bi-zoom-in me-1"></i>
+
+                                        Klik untuk memperbesar
+
+                                    </div>
+
+                                </div>
+
+                            <?php else: ?>
+
+                                <div class="detail-photo">
+
+                                    <div class="photo-empty">
+
+                                        <i class="bi bi-image"></i>
 
                                         <div class="small">
-
                                             Tidak ada foto komponen
-
                                         </div>
 
                                     </div>
 
-                                <?php endif; ?>
+                                </div>
 
-                            </div>
+                            <?php endif; ?>
 
                         </div>
 
                     </div>
 
 
-
-                    <!-- INFORMASI UTAMA -->
+                    <!-- =================================================
+                         INFORMASI KOMPONEN
+                    ================================================== -->
 
                     <div class="detail-section mb-3">
 
                         <div class="detail-section-header">
 
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="detail-section-title">
 
                                 <i class="bi bi-info-circle text-primary"></i>
 
-                                <span class="fw-bold small">
-
+                                <span>
                                     Informasi Komponen
-
                                 </span>
 
                             </div>
@@ -1129,32 +1336,23 @@ include "../template/header.php";
                             <div class="info-row">
 
                                 <div class="info-label">
-
                                     Nama Komponen
-
                                 </div>
 
-
-                                <div class="info-value fs-6">
-
-                                    <?= htmlspecialchars($namaKomponen) ?>
-
+                                <div class="info-value">
+                                    <?= e($namaKomponen) ?>
                                 </div>
 
                             </div>
 
 
-
-                            <!-- SERIAL NUMBER -->
+                            <!-- SERIAL -->
 
                             <div class="info-row">
 
                                 <div class="info-label">
-
                                     Serial Number
-
                                 </div>
-
 
                                 <div class="info-value">
 
@@ -1162,7 +1360,7 @@ include "../template/header.php";
 
                                         <i class="bi bi-upc-scan"></i>
 
-                                        <?= htmlspecialchars($snKomponen) ?>
+                                        <?= e($snKomponen) ?>
 
                                     </span>
 
@@ -1171,25 +1369,40 @@ include "../template/header.php";
                             </div>
 
 
+                            <!-- JENIS KOMPONEN -->
+
+                            <div class="info-row">
+
+                                <div class="info-label">
+                                    Jenis Komponen
+                                </div>
+
+                                <div class="info-value">
+                                    <?= showValue($d['jenis_komponen'] ?? '') ?>
+                                </div>
+
+                            </div>
+
 
                             <!-- KONDISI -->
 
                             <div class="info-row">
 
                                 <div class="info-label">
-
                                     Kondisi
-
                                 </div>
-
 
                                 <div class="info-value">
 
-                                    <span class="status-badge <?= $badgeKondisi ?>">
+                                    <span
+                                        class="status-badge <?= e($badgeKondisi) ?>"
+                                    >
 
-                                        <i class="bi <?= $iconKondisi ?>"></i>
+                                        <i
+                                            class="bi <?= e($iconKondisi) ?>"
+                                        ></i>
 
-                                        <?= htmlspecialchars($kondisi) ?>
+                                        <?= e($kondisi) ?>
 
                                     </span>
 
@@ -1203,21 +1416,20 @@ include "../template/header.php";
                     </div>
 
 
-
-                    <!-- HIERARKI MESIN -->
+                    <!-- =================================================
+                         HIERARKI
+                    ================================================== -->
 
                     <div class="detail-section">
 
                         <div class="detail-section-header">
 
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="detail-section-title">
 
                                 <i class="bi bi-diagram-3 text-primary"></i>
 
-                                <span class="fw-bold small">
-
+                                <span>
                                     Struktur Penempatan
-
                                 </span>
 
                             </div>
@@ -1235,27 +1447,18 @@ include "../template/header.php";
                                 <div class="hierarchy-item">
 
                                     <span class="hierarchy-icon">
-
                                         <i class="bi bi-geo-alt"></i>
-
                                     </span>
-
 
                                     <span class="hierarchy-label">
-
                                         Lokasi
-
                                     </span>
 
-
                                     <span class="hierarchy-value">
-
-                                        <?= htmlspecialchars($lokasi) ?>
-
+                                        <?= e($lokasi) ?>
                                     </span>
 
                                 </div>
-
 
 
                                 <!-- AREA -->
@@ -1263,27 +1466,18 @@ include "../template/header.php";
                                 <div class="hierarchy-item">
 
                                     <span class="hierarchy-icon">
-
                                         <i class="bi bi-building"></i>
-
                                     </span>
-
 
                                     <span class="hierarchy-label">
-
                                         Area / Bagian
-
                                     </span>
 
-
                                     <span class="hierarchy-value">
-
-                                        <?= htmlspecialchars($namaArea) ?>
-
+                                        <?= e($namaArea) ?>
                                     </span>
 
                                 </div>
-
 
 
                                 <!-- JENIS MESIN -->
@@ -1291,27 +1485,18 @@ include "../template/header.php";
                                 <div class="hierarchy-item">
 
                                     <span class="hierarchy-icon">
-
                                         <i class="bi bi-grid"></i>
-
                                     </span>
-
 
                                     <span class="hierarchy-label">
-
                                         Jenis Mesin
-
                                     </span>
 
-
                                     <span class="hierarchy-value">
-
-                                        <?= htmlspecialchars($namaJenis) ?>
-
+                                        <?= e($namaJenis) ?>
                                     </span>
 
                                 </div>
-
 
 
                                 <!-- MESIN -->
@@ -1319,27 +1504,18 @@ include "../template/header.php";
                                 <div class="hierarchy-item">
 
                                     <span class="hierarchy-icon">
-
                                         <i class="bi bi-cpu"></i>
-
                                     </span>
-
 
                                     <span class="hierarchy-label">
-
                                         Mesin Induk
-
                                     </span>
 
-
                                     <span class="hierarchy-value">
-
-                                        <?= htmlspecialchars($namaMesin) ?>
-
+                                        <?= e($namaMesin) ?>
                                     </span>
 
                                 </div>
-
 
 
                                 <!-- SUB MESIN -->
@@ -1347,23 +1523,15 @@ include "../template/header.php";
                                 <div class="hierarchy-item">
 
                                     <span class="hierarchy-icon">
-
                                         <i class="bi bi-diagram-2"></i>
-
                                     </span>
-
 
                                     <span class="hierarchy-label">
-
                                         Sub Mesin
-
                                     </span>
 
-
                                     <span class="hierarchy-value">
-
-                                        <?= htmlspecialchars($namaSubMesin) ?>
-
+                                        <?= e($namaSubMesin) ?>
                                     </span>
 
                                 </div>
@@ -1378,28 +1546,27 @@ include "../template/header.php";
                 </div>
 
 
-
                 <!-- =================================================
                      KOLOM KANAN
                 ================================================== -->
 
-                <div class="col-xl-7 col-lg-7">
+                <div class="col-12 col-lg-7 col-xl-7">
 
 
-                    <!-- SPESIFIKASI -->
+                    <!-- =================================================
+                         SPESIFIKASI
+                    ================================================== -->
 
                     <div class="detail-section mb-3">
 
                         <div class="detail-section-header">
 
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="detail-section-title">
 
                                 <i class="bi bi-cpu text-primary"></i>
 
-                                <span class="fw-bold small">
-
+                                <span>
                                     Spesifikasi Teknis
-
                                 </span>
 
                             </div>
@@ -1417,23 +1584,14 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Brand / Merk
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['brand'])
-                                                ? $d['brand']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['brand'] ?? '') ?>
                                     </div>
 
                                 </div>
-
 
 
                                 <!-- TIPE -->
@@ -1441,23 +1599,14 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Tipe
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['tipe'])
-                                                ? $d['tipe']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['tipe'] ?? '') ?>
                                     </div>
 
                                 </div>
-
 
 
                                 <!-- PART NUMBER -->
@@ -1465,23 +1614,14 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Part Number
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['part_number'])
-                                                ? $d['part_number']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['part_number'] ?? '') ?>
                                     </div>
 
                                 </div>
-
 
 
                                 <!-- DAYA -->
@@ -1489,23 +1629,14 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Daya
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['daya'])
-                                                ? $d['daya']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['daya'] ?? '') ?>
                                     </div>
 
                                 </div>
-
 
 
                                 <!-- IO ADDRESS -->
@@ -1513,23 +1644,45 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         IO Address
-
                                     </div>
 
                                     <div class="spec-value">
 
-                                        <?= htmlspecialchars(
-                                            !empty($d['io_address'])
-                                                ? $d['io_address']
-                                                : '-'
-                                        ) ?>
+                                        <span class="code-badge">
+
+                                            <i class="bi bi-diagram-2"></i>
+
+                                            <?= showValue($d['io_address'] ?? '') ?>
+
+                                        </span>
 
                                     </div>
 
                                 </div>
 
+
+                                <!-- IP ADDRESS -->
+
+                                <div class="spec-item">
+
+                                    <div class="spec-label">
+                                        IP Address
+                                    </div>
+
+                                    <div class="spec-value">
+
+                                        <span class="code-badge">
+
+                                            <i class="bi bi-globe2"></i>
+
+                                            <?= showValue($d['ip_address'] ?? '') ?>
+
+                                        </span>
+
+                                    </div>
+
+                                </div>
 
 
                                 <!-- INPUT VOLTAGE -->
@@ -1537,23 +1690,14 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Input Voltage
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['input_voltage'])
-                                                ? $d['input_voltage']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['input_voltage'] ?? '') ?>
                                     </div>
 
                                 </div>
-
 
 
                                 <!-- FREKUENSI INPUT -->
@@ -1561,23 +1705,14 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Frekuensi Input
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['frekuensi_input'])
-                                                ? $d['frekuensi_input']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['frekuensi_input'] ?? '') ?>
                                     </div>
 
                                 </div>
-
 
 
                                 <!-- ARUS INPUT -->
@@ -1585,23 +1720,14 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Arus Input
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['arus_input'])
-                                                ? $d['arus_input']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['arus_input'] ?? '') ?>
                                     </div>
 
                                 </div>
-
 
 
                                 <!-- OUTPUT -->
@@ -1609,23 +1735,14 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Output
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['output'])
-                                                ? $d['output']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['output'] ?? '') ?>
                                     </div>
 
                                 </div>
-
 
 
                                 <!-- FREKUENSI OUTPUT -->
@@ -1633,23 +1750,14 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Frekuensi Output
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['frekuensi_output'])
-                                                ? $d['frekuensi_output']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['frekuensi_output'] ?? '') ?>
                                     </div>
 
                                 </div>
-
 
 
                                 <!-- IP RATING -->
@@ -1657,33 +1765,22 @@ include "../template/header.php";
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         IP Rating
-
                                     </div>
 
                                     <div class="spec-value">
-
-                                        <?= htmlspecialchars(
-                                            !empty($d['ip_rating'])
-                                                ? $d['ip_rating']
-                                                : '-'
-                                        ) ?>
-
+                                        <?= showValue($d['ip_rating'] ?? '') ?>
                                     </div>
 
                                 </div>
 
 
-
-                                <!-- SERIAL NUMBER MESIN -->
+                                <!-- SERIAL MESIN -->
 
                                 <div class="spec-item">
 
                                     <div class="spec-label">
-
                                         Serial Number Mesin
-
                                     </div>
 
                                     <div class="spec-value">
@@ -1692,7 +1789,7 @@ include "../template/header.php";
 
                                             <i class="bi bi-qr-code"></i>
 
-                                            <?= htmlspecialchars($snMesin) ?>
+                                            <?= e($snMesin) ?>
 
                                         </span>
 
@@ -1708,21 +1805,20 @@ include "../template/header.php";
                     </div>
 
 
-
-                    <!-- KETERANGAN -->
+                    <!-- =================================================
+                         KETERANGAN
+                    ================================================== -->
 
                     <div class="detail-section">
 
                         <div class="detail-section-header">
 
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="detail-section-title">
 
                                 <i class="bi bi-journal-text text-primary"></i>
 
-                                <span class="fw-bold small">
-
+                                <span>
                                     Keterangan / Catatan
-
                                 </span>
 
                             </div>
@@ -1734,20 +1830,14 @@ include "../template/header.php";
 
                             <div class="note-box">
 
-                                <?php if (!empty($d['keterangan'])): ?>
+                                <?php if (!empty(trim((string)($d['keterangan'] ?? '')))): ?>
 
-                                    <?= nl2br(
-                                        htmlspecialchars(
-                                            $d['keterangan']
-                                        )
-                                    ) ?>
+                                    <?= nl2br(e($d['keterangan'])) ?>
 
                                 <?php else: ?>
 
                                     <span class="text-muted">
-
                                         Tidak ada keterangan tambahan.
-
                                     </span>
 
                                 <?php endif; ?>
@@ -1783,11 +1873,89 @@ include "../template/header.php";
 
             </a>
 
+
+            <div class="small text-muted">
+
+                ID Komponen:
+
+                <strong>
+                    #<?= intval($d['id']) ?>
+                </strong>
+
+            </div>
+
         </div>
 
     </div>
 
 </div>
+
+
+<!-- =========================================================
+     MODAL FOTO
+========================================================= -->
+
+<?php if ($ada_gambar): ?>
+
+<div
+    class="modal fade photo-modal"
+    id="modalFoto"
+    tabindex="-1"
+    aria-labelledby="modalFotoLabel"
+    aria-hidden="true"
+>
+
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+
+        <div class="modal-content">
+
+
+            <div class="modal-header py-2 px-3">
+
+                <div>
+
+                    <h6
+                        class="modal-title fw-bold"
+                        id="modalFotoLabel"
+                    >
+                        Foto Komponen
+                    </h6>
+
+                    <div class="small text-white-50">
+                        <?= e($namaKomponen) ?>
+                    </div>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Tutup"
+                ></button>
+
+            </div>
+
+
+            <div class="modal-body text-center p-2 p-md-3">
+
+                <img
+                    src="<?= e($gambar_url) ?>"
+                    alt="Foto <?= e($namaKomponen) ?>"
+                    class="photo-modal-image"
+                >
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+</div>
+
+<?php endif; ?>
 
 
 <?php include "../template/footer.php"; ?>

@@ -1,128 +1,1425 @@
 <?php
 include "../koneksi.php";
 
+/* =========================================================
+   KONFIGURASI
+========================================================= */
+
 $error = "";
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+
+
+/* =========================================================
+   VALIDASI ID
+========================================================= */
 
 if ($id <= 0) {
     header("Location: jenis_mesin.php");
     exit;
 }
 
-// Ambil data lama berdasarkan ID
-$stmt_get = mysqli_prepare($conn, "SELECT * FROM jenis_mesin WHERE id = ?");
-mysqli_stmt_bind_param($stmt_get, "i", $id);
+
+/* =========================================================
+   AMBIL DATA JENIS MESIN
+========================================================= */
+
+$stmt_get = mysqli_prepare(
+    $conn,
+    "SELECT *
+     FROM jenis_mesin
+     WHERE id = ?"
+);
+
+if (!$stmt_get) {
+    die("Query gagal dipersiapkan: " . mysqli_error($conn));
+}
+
+mysqli_stmt_bind_param(
+    $stmt_get,
+    "i",
+    $id
+);
+
 mysqli_stmt_execute($stmt_get);
+
 $result = mysqli_stmt_get_result($stmt_get);
+
 $data = mysqli_fetch_assoc($result);
+
+mysqli_stmt_close($stmt_get);
+
+
+/* =========================================================
+   DATA TIDAK DITEMUKAN
+========================================================= */
 
 if (!$data) {
     header("Location: jenis_mesin.php");
     exit;
 }
 
-if (isset($_POST['update'])) {
-    $id_area          = intval($_POST['id_area']);
-    $nama_jenis_mesin = trim($_POST['nama_jenis_mesin']);
 
-    if (empty($id_area)) {
-        $error = "Area Bagian wajib dipilih!";
-    } elseif (empty($nama_jenis_mesin)) {
-        $error = "Nama Jenis Mesin wajib diisi!";
+/* =========================================================
+   PROSES UPDATE
+========================================================= */
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
+
+    $id_area = isset($_POST['id_area'])
+        ? intval($_POST['id_area'])
+        : 0;
+
+    $nama_jenis_mesin = trim(
+        $_POST['nama_jenis_mesin'] ?? ''
+    );
+
+
+    /* -----------------------------------------------------
+       VALIDASI
+    ----------------------------------------------------- */
+
+    if ($id_area <= 0) {
+
+        $error = "Area Bagian wajib dipilih.";
+
+    } elseif ($nama_jenis_mesin === '') {
+
+        $error = "Nama Jenis Mesin wajib diisi.";
+
+    } elseif (strlen($nama_jenis_mesin) < 2) {
+
+        $error = "Nama Jenis Mesin minimal 2 karakter.";
+
     }
 
-    if (empty($error)) {
-        $stmt = mysqli_prepare($conn, "UPDATE jenis_mesin SET id_area = ?, nama_jenis_mesin = ? WHERE id = ?");
-        mysqli_stmt_bind_param($stmt, "isi", $id_area, $nama_jenis_mesin, $id);
 
-        if (mysqli_stmt_execute($stmt)) {
-            header("Location: jenis_mesin.php");
-            exit;
-        } else {
-            $error = "Gagal memperbarui data: " . mysqli_error($conn);
+    /* -----------------------------------------------------
+       CEK AREA
+    ----------------------------------------------------- */
+
+    if (empty($error)) {
+
+        $stmt_area = mysqli_prepare(
+            $conn,
+            "SELECT id
+             FROM area_bagian
+             WHERE id = ?
+             LIMIT 1"
+        );
+
+        mysqli_stmt_bind_param(
+            $stmt_area,
+            "i",
+            $id_area
+        );
+
+        mysqli_stmt_execute($stmt_area);
+
+        $result_area =
+            mysqli_stmt_get_result($stmt_area);
+
+        $area_exists =
+            mysqli_num_rows($result_area) > 0;
+
+        mysqli_stmt_close($stmt_area);
+
+
+        if (!$area_exists) {
+
+            $error = "Area Bagian yang dipilih tidak ditemukan.";
+
         }
-        mysqli_stmt_close($stmt);
+    }
+
+
+    /* -----------------------------------------------------
+       CEK DUPLIKASI
+    ----------------------------------------------------- */
+
+    if (empty($error)) {
+
+        $stmt_check = mysqli_prepare(
+            $conn,
+            "SELECT id
+             FROM jenis_mesin
+             WHERE id_area = ?
+             AND LOWER(TRIM(nama_jenis_mesin))
+                 = LOWER(TRIM(?))
+             AND id != ?
+             LIMIT 1"
+        );
+
+        mysqli_stmt_bind_param(
+            $stmt_check,
+            "isi",
+            $id_area,
+            $nama_jenis_mesin,
+            $id
+        );
+
+        mysqli_stmt_execute($stmt_check);
+
+        $result_check =
+            mysqli_stmt_get_result($stmt_check);
+
+        $duplicate =
+            mysqli_num_rows($result_check) > 0;
+
+        mysqli_stmt_close($stmt_check);
+
+
+        if ($duplicate) {
+
+            $error =
+                "Jenis mesin dengan nama tersebut sudah terdaftar pada area yang dipilih.";
+
+        }
+    }
+
+
+    /* -----------------------------------------------------
+       UPDATE DATABASE
+    ----------------------------------------------------- */
+
+    if (empty($error)) {
+
+        $stmt = mysqli_prepare(
+            $conn,
+            "UPDATE jenis_mesin
+             SET
+                id_area = ?,
+                nama_jenis_mesin = ?
+             WHERE id = ?"
+        );
+
+
+        if (!$stmt) {
+
+            $error =
+                "Query update gagal dipersiapkan: "
+                . mysqli_error($conn);
+
+        } else {
+
+            mysqli_stmt_bind_param(
+                $stmt,
+                "isi",
+                $id_area,
+                $nama_jenis_mesin,
+                $id
+            );
+
+
+            if (mysqli_stmt_execute($stmt)) {
+
+                mysqli_stmt_close($stmt);
+
+                header(
+                    "Location: jenis_mesin.php?updated=1"
+                );
+
+                exit;
+
+            } else {
+
+                $error =
+                    "Gagal memperbarui data: "
+                    . mysqli_stmt_error($stmt);
+
+                mysqli_stmt_close($stmt);
+            }
+        }
     }
 }
 
+
+/* =========================================================
+   NILAI FORM
+========================================================= */
+
+$form_id_area = isset($_POST['id_area'])
+    ? intval($_POST['id_area'])
+    : intval($data['id_area']);
+
+$form_nama_jenis_mesin = isset($_POST['nama_jenis_mesin'])
+    ? $_POST['nama_jenis_mesin']
+    : ($data['nama_jenis_mesin'] ?? '');
+
+
+/* =========================================================
+   AMBIL DATA AREA
+========================================================= */
+
+$q_area = mysqli_query(
+    $conn,
+    "SELECT
+        id,
+        nama_area,
+        lokasi
+     FROM area_bagian
+     ORDER BY nama_area ASC"
+);
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
 include "../template/header.php";
+
 ?>
 
-<div class="container-fluid p-0">
 
-  <!-- HEADER -->
-  <div class="dashboard-header mb-3 py-3 px-4">
-    <div class="d-flex align-items-center gap-3">
-      <a href="jenis_mesin.php" class="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 38px; height: 38px; flex-shrink: 0;">
-        <i class="bi bi-arrow-left fs-5"></i>
-      </a>
-      <div>
-        <h3 class="dashboard-title m-0 fs-4 fw-bold">Edit Jenis Mesin</h3>
-        <p class="dashboard-subtitle m-0 small text-muted">Perbarui informasi kategori atau jenis mesin</p>
-      </div>
-    </div>
-  </div>
+<style>
 
-  <!-- FORM CARD -->
-  <div class="content-card mb-3">
-    <div class="card-header-custom py-2 px-3">
-      <h6 class="card-title-custom m-0 fw-bold">
-        <i class="bi bi-pencil-square me-2"></i>Form Edit Jenis Mesin
-      </h6>
-    </div>
-    
-    <div class="card-body-custom p-3">
-      <?php if (!empty($error)) : ?>
-        <div class="alert alert-danger border-0 d-flex align-items-center py-2 px-3 mb-3" role="alert">
-          <i class="bi bi-exclamation-triangle-fill fs-6 me-2"></i>
-          <div class="small"><?= htmlspecialchars($error); ?></div>
+/* =========================================================
+   PAGE
+========================================================= */
+
+.edit-jenis-page {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.edit-page-header {
+
+    background: #ffffff;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 16px;
+
+    padding: 18px 20px;
+
+    margin-bottom: 18px;
+
+    box-shadow:
+        0 2px 8px rgba(15, 23, 42, .04);
+}
+
+
+.edit-page-header-inner {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+}
+
+
+.edit-back-btn {
+
+    width: 42px;
+
+    height: 42px;
+
+    min-width: 42px;
+
+    border-radius: 11px;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border: 1px solid #dbe2ea;
+
+    background: #f8fafc;
+
+    color: #475569;
+
+    text-decoration: none;
+
+    transition: .2s ease;
+}
+
+
+.edit-back-btn:hover {
+
+    background: #005baa;
+
+    border-color: #005baa;
+
+    color: #ffffff;
+
+    transform: translateX(-2px);
+}
+
+
+.edit-page-title {
+
+    font-size: 21px;
+
+    font-weight: 800;
+
+    color: #172033;
+
+    margin: 0;
+}
+
+
+.edit-page-subtitle {
+
+    color: #94a3b8;
+
+    font-size: 12px;
+
+    margin-top: 3px;
+}
+
+
+/* =========================================================
+   FORM CARD
+========================================================= */
+
+.edit-form-card {
+
+    background: #ffffff;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 16px;
+
+    overflow: hidden;
+
+    box-shadow:
+        0 2px 8px rgba(15, 23, 42, .035);
+}
+
+
+.edit-form-header {
+
+    padding: 17px 20px;
+
+    border-bottom: 1px solid #e5e7eb;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+}
+
+
+.edit-form-header-icon {
+
+    width: 40px;
+
+    height: 40px;
+
+    border-radius: 10px;
+
+    background: #eef5ff;
+
+    color: #005baa;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 18px;
+}
+
+
+.edit-form-title {
+
+    font-size: 15px;
+
+    font-weight: 800;
+
+    color: #172033;
+
+    margin: 0;
+}
+
+
+.edit-form-subtitle {
+
+    color: #94a3b8;
+
+    font-size: 11px;
+
+    margin-top: 2px;
+}
+
+
+/* =========================================================
+   BODY
+========================================================= */
+
+.edit-form-body {
+
+    padding: 22px;
+}
+
+
+/* =========================================================
+   ALERT
+========================================================= */
+
+.edit-error {
+
+    border: 0;
+
+    border-left: 4px solid #dc3545;
+
+    background: #fff5f5;
+
+    color: #842029;
+
+    border-radius: 10px;
+
+    padding: 12px 14px;
+
+    font-size: 13px;
+
+    margin-bottom: 20px;
+
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 9px;
+}
+
+
+/* =========================================================
+   FORM GROUP
+========================================================= */
+
+.form-section {
+
+    margin-bottom: 20px;
+}
+
+
+.form-section-title {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    font-size: 12px;
+
+    font-weight: 800;
+
+    color: #005baa;
+
+    text-transform: uppercase;
+
+    letter-spacing: .4px;
+
+    margin-bottom: 14px;
+}
+
+
+.form-section-title i {
+
+    font-size: 15px;
+}
+
+
+.form-label-custom {
+
+    display: block;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    color: #334155;
+
+    margin-bottom: 6px;
+}
+
+
+.required {
+
+    color: #dc3545;
+}
+
+
+.form-control-custom,
+.form-select-custom {
+
+    width: 100%;
+
+    min-height: 42px;
+
+    border: 1px solid #dbe2ea;
+
+    border-radius: 9px;
+
+    padding: 9px 12px;
+
+    font-size: 13px;
+
+    color: #172033;
+
+    background: #ffffff;
+
+    outline: none;
+
+    transition: .2s ease;
+}
+
+
+.form-control-custom:focus,
+.form-select-custom:focus {
+
+    border-color: #005baa;
+
+    box-shadow:
+        0 0 0 3px rgba(0, 91, 170, .10);
+}
+
+
+.form-help {
+
+    font-size: 11px;
+
+    color: #94a3b8;
+
+    margin-top: 6px;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   INFO AREA
+========================================================= */
+
+.selected-area-info {
+
+    margin-top: 10px;
+
+    padding: 10px 12px;
+
+    background: #f8fafc;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 9px;
+
+    font-size: 11px;
+
+    color: #64748b;
+}
+
+
+.selected-area-info strong {
+
+    color: #334155;
+}
+
+
+/* =========================================================
+   FOOTER BUTTON
+========================================================= */
+
+.form-actions {
+
+    border-top: 1px solid #e5e7eb;
+
+    padding-top: 18px;
+
+    margin-top: 8px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 10px;
+
+}
+
+
+.form-actions-left {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+}
+
+
+.btn-update {
+
+    min-height: 42px;
+
+    padding: 9px 18px;
+
+    border: 0;
+
+    border-radius: 9px;
+
+    background: #005baa;
+
+    color: #ffffff;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 7px;
+
+    transition: .2s ease;
+}
+
+
+.btn-update:hover {
+
+    background: #004987;
+
+    color: #ffffff;
+
+    transform: translateY(-1px);
+}
+
+
+.btn-cancel {
+
+    min-height: 42px;
+
+    padding: 9px 18px;
+
+    border: 1px solid #dbe2ea;
+
+    border-radius: 9px;
+
+    background: #ffffff;
+
+    color: #64748b;
+
+    text-decoration: none;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    transition: .2s ease;
+}
+
+
+.btn-cancel:hover {
+
+    background: #f8fafc;
+
+    color: #334155;
+
+}
+
+
+/* =========================================================
+   RESPONSIVE TABLET
+========================================================= */
+
+@media (max-width: 768px) {
+
+    .edit-page-header {
+
+        padding: 15px;
+
+        border-radius: 13px;
+    }
+
+
+    .edit-page-title {
+
+        font-size: 18px;
+    }
+
+
+    .edit-page-subtitle {
+
+        font-size: 11px;
+    }
+
+
+    .edit-form-body {
+
+        padding: 16px;
+    }
+
+
+    .edit-form-header {
+
+        padding: 14px 16px;
+    }
+
+
+    .form-actions {
+
+        flex-direction: column-reverse;
+
+        align-items: stretch;
+    }
+
+
+    .form-actions-left {
+
+        width: 100%;
+
+        display: flex;
+    }
+
+
+    .btn-update,
+    .btn-cancel {
+
+        flex: 1;
+
+        width: 100%;
+    }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE MOBILE
+========================================================= */
+
+@media (max-width: 576px) {
+
+    .edit-jenis-page {
+
+        padding-bottom: 10px;
+    }
+
+
+    .edit-page-header {
+
+        margin-bottom: 12px;
+
+        padding: 13px;
+
+        border-radius: 12px;
+    }
+
+
+    .edit-page-header-inner {
+
+        gap: 10px;
+    }
+
+
+    .edit-back-btn {
+
+        width: 38px;
+
+        height: 38px;
+
+        min-width: 38px;
+    }
+
+
+    .edit-back-btn i {
+
+        font-size: 16px;
+    }
+
+
+    .edit-page-title {
+
+        font-size: 16px;
+    }
+
+
+    .edit-page-subtitle {
+
+        font-size: 10px;
+
+        line-height: 1.4;
+    }
+
+
+    .edit-form-card {
+
+        border-radius: 12px;
+    }
+
+
+    .edit-form-header {
+
+        padding: 13px;
+
+        gap: 9px;
+    }
+
+
+    .edit-form-header-icon {
+
+        width: 36px;
+
+        height: 36px;
+
+        min-width: 36px;
+
+        font-size: 16px;
+    }
+
+
+    .edit-form-title {
+
+        font-size: 13px;
+    }
+
+
+    .edit-form-subtitle {
+
+        font-size: 10px;
+    }
+
+
+    .edit-form-body {
+
+        padding: 13px;
+    }
+
+
+    .form-section {
+
+        margin-bottom: 17px;
+    }
+
+
+    .form-section-title {
+
+        font-size: 11px;
+
+        margin-bottom: 12px;
+    }
+
+
+    .form-label-custom {
+
+        font-size: 11px;
+    }
+
+
+    .form-control-custom,
+    .form-select-custom {
+
+        min-height: 40px;
+
+        font-size: 12px;
+
+        padding: 8px 10px;
+    }
+
+
+    .form-help {
+
+        font-size: 10px;
+    }
+
+
+    .selected-area-info {
+
+        font-size: 10px;
+    }
+
+
+    .form-actions-left {
+
+        flex-direction: column;
+
+        width: 100%;
+    }
+
+
+    .btn-update,
+    .btn-cancel {
+
+        min-height: 40px;
+
+        font-size: 12px;
+
+        width: 100%;
+    }
+
+}
+
+</style>
+
+
+<div class="container-fluid p-0 edit-jenis-page">
+
+
+    <!-- =====================================================
+         PAGE HEADER
+    ====================================================== -->
+
+    <div class="edit-page-header">
+
+        <div class="edit-page-header-inner">
+
+            <a
+                href="jenis_mesin.php"
+                class="edit-back-btn"
+                title="Kembali"
+            >
+                <i class="bi bi-arrow-left"></i>
+            </a>
+
+
+            <div>
+
+                <h2 class="edit-page-title">
+
+                    Edit Jenis Mesin
+
+                </h2>
+
+
+                <div class="edit-page-subtitle">
+
+                    Perbarui informasi kategori atau jenis mesin
+
+                </div>
+
+            </div>
+
         </div>
-      <?php endif; ?>
-
-      <form method="POST">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label fw-semibold text-dark small mb-1">Area Bagian <span class="text-danger">*</span></label>
-            <select name="id_area" id="id_area" class="form-select form-select-sm" required>
-              <option value="">-- Pilih Area --</option>
-              <?php
-              $q_area = mysqli_query($conn, "SELECT * FROM area_bagian ORDER BY nama_area ASC");
-              while ($a = mysqli_fetch_assoc($q_area)) {
-                  $selected_area = isset($_POST['id_area']) ? $_POST['id_area'] : $data['id_area'];
-                  $selected = ($selected_area == $a['id']) ? 'selected' : '';
-                  echo "<option value='".$a['id']."' ".$selected.">".$a['nama_area']."</option>";
-              }
-              ?>
-            </select>
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label fw-semibold text-dark small mb-1">Nama Jenis Mesin <span class="text-danger">*</span></label>
-            <input type="text" name="nama_jenis_mesin" class="form-control form-control-sm" placeholder="Contoh: Conveyor, Mixer, Filling Machine" value="<?= isset($_POST['nama_jenis_mesin']) ? htmlspecialchars($_POST['nama_jenis_mesin']) : htmlspecialchars($data['nama_jenis_mesin']) ?>" required>
-            <div class="form-text mt-1 style-subtext">Kategori atau kelompok jenis unit mesin.</div>
-          </div>
-        </div>
-
-        <div class="border-top mt-3 pt-3 d-flex align-items-center gap-2">
-          <button type="submit" name="update" class="btn btn-primary px-4 btn-sm fw-semibold">
-            <i class="bi bi-check-lg me-1"></i> Perbarui Data
-          </button>
-          <a href="jenis_mesin.php" class="btn btn-light border px-4 btn-sm fw-semibold text-secondary">
-            Batal
-          </a>
-        </div>
-      </form>
 
     </div>
-  </div>
+
+
+
+    <!-- =====================================================
+         FORM CARD
+    ====================================================== -->
+
+    <div class="edit-form-card">
+
+
+        <!-- HEADER -->
+
+        <div class="edit-form-header">
+
+            <div class="edit-form-header-icon">
+
+                <i class="bi bi-pencil-square"></i>
+
+            </div>
+
+
+            <div>
+
+                <h5 class="edit-form-title">
+
+                    Form Edit Jenis Mesin
+
+                </h5>
+
+
+                <div class="edit-form-subtitle">
+
+                    Silakan perbarui data jenis mesin di bawah ini.
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- BODY -->
+
+        <div class="edit-form-body">
+
+
+            <!-- ERROR -->
+
+            <?php if (!empty($error)): ?>
+
+                <div class="edit-error">
+
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+
+                    <div>
+
+                        <?= htmlspecialchars($error) ?>
+
+                    </div>
+
+                </div>
+
+            <?php endif; ?>
+
+
+
+            <form
+                method="POST"
+                autocomplete="off"
+            >
+
+
+                <!-- =================================================
+                     INFORMASI JENIS MESIN
+                ================================================== -->
+
+                <div class="form-section">
+
+                    <div class="form-section-title">
+
+                        <i class="bi bi-diagram-3"></i>
+
+                        Informasi Jenis Mesin
+
+                    </div>
+
+
+                    <div class="row g-3">
+
+
+                        <!-- AREA -->
+
+                        <div class="col-12 col-md-6">
+
+                            <label
+                                for="id_area"
+                                class="form-label-custom"
+                            >
+
+                                Area Bagian
+
+                                <span class="required">*</span>
+
+                            </label>
+
+
+                            <select
+                                name="id_area"
+                                id="id_area"
+                                class="form-select-custom"
+                                required
+                            >
+
+                                <option value="">
+
+                                    -- Pilih Area Bagian --
+
+                                </option>
+
+
+                                <?php if ($q_area && mysqli_num_rows($q_area) > 0): ?>
+
+                                    <?php while ($a = mysqli_fetch_assoc($q_area)): ?>
+
+                                        <option
+                                            value="<?= (int)$a['id'] ?>"
+                                            <?= ($form_id_area == $a['id']) ? 'selected' : '' ?>
+                                        >
+
+                                            <?= htmlspecialchars(
+                                                $a['nama_area']
+                                            ) ?>
+
+                                            <?php if (!empty($a['lokasi'])): ?>
+
+                                                — <?= htmlspecialchars(
+                                                    $a['lokasi']
+                                                ) ?>
+
+                                            <?php endif; ?>
+
+                                        </option>
+
+                                    <?php endwhile; ?>
+
+                                <?php endif; ?>
+
+                            </select>
+
+
+                            <div class="form-help">
+
+                                Pilih area atau bagian pabrik tempat
+                                jenis mesin berada.
+
+                            </div>
+
+
+                            <div
+                                id="area-info"
+                                class="selected-area-info"
+                            >
+
+                                <i class="bi bi-info-circle me-1"></i>
+
+                                Pastikan area yang dipilih sudah sesuai.
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- NAMA JENIS MESIN -->
+
+                        <div class="col-12 col-md-6">
+
+                            <label
+                                for="nama_jenis_mesin"
+                                class="form-label-custom"
+                            >
+
+                                Nama Jenis Mesin
+
+                                <span class="required">*</span>
+
+                            </label>
+
+
+                            <input
+                                type="text"
+                                name="nama_jenis_mesin"
+                                id="nama_jenis_mesin"
+                                class="form-control-custom"
+                                placeholder="Contoh: Conveyor, Mixer, Filling Machine"
+                                value="<?= htmlspecialchars(
+                                    $form_nama_jenis_mesin
+                                ) ?>"
+                                maxlength="150"
+                                required
+                            >
+
+
+                            <div class="form-help">
+
+                                Masukkan nama kategori atau kelompok
+                                jenis mesin.
+
+                            </div>
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     ACTION
+                ================================================== -->
+
+                <div class="form-actions">
+
+
+                    <div class="form-actions-left">
+
+                        <button
+                            type="submit"
+                            name="update"
+                            value="1"
+                            class="btn-update"
+                            id="btn-update"
+                        >
+
+                            <i class="bi bi-check-lg"></i>
+
+                            <span>
+                                Perbarui Data
+                            </span>
+
+                        </button>
+
+
+                        <a
+                            href="jenis_mesin.php"
+                            class="btn-cancel"
+                        >
+
+                            <i class="bi bi-x-lg me-1"></i>
+
+                            Batal
+
+                        </a>
+
+                    </div>
+
+
+                    <div class="text-muted small d-none d-md-block">
+
+                        <i class="bi bi-shield-check me-1"></i>
+
+                        Data akan disimpan ke database
+
+                    </div>
+
+
+                </div>
+
+
+            </form>
+
+        </div>
+
+    </div>
 
 </div>
 
-<style>
-  .style-subtext {
-    font-size: 11px;
-    color: #64748b;
-  }
-</style>
+
+<script>
+
+/* =========================================================
+   AREA INFO
+========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        const areaSelect =
+            document.getElementById("id_area");
+
+        const areaInfo =
+            document.getElementById("area-info");
+
+        if (!areaSelect || !areaInfo) {
+            return;
+        }
+
+
+        function updateAreaInfo() {
+
+            const option =
+                areaSelect.options[
+                    areaSelect.selectedIndex
+                ];
+
+
+            if (
+                !option ||
+                !option.value
+            ) {
+
+                areaInfo.innerHTML =
+                    '<i class="bi bi-info-circle me-1"></i>' +
+                    'Pastikan area yang dipilih sudah sesuai.';
+
+                return;
+            }
+
+
+            const text =
+                option.textContent.trim();
+
+
+            areaInfo.innerHTML =
+                '<i class="bi bi-geo-alt me-1"></i>' +
+                '<strong>Area dipilih:</strong> ' +
+                escapeHtml(text);
+        }
+
+
+        function escapeHtml(text) {
+
+            const div =
+                document.createElement("div");
+
+            div.textContent = text;
+
+            return div.innerHTML;
+        }
+
+
+        areaSelect.addEventListener(
+            "change",
+            updateAreaInfo
+        );
+
+
+        updateAreaInfo();
+
+    }
+);
+
+
+/* =========================================================
+   PREVENT DOUBLE SUBMIT
+========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        const form =
+            document.querySelector(
+                "form[method='POST']"
+            );
+
+        const button =
+            document.getElementById(
+                "btn-update"
+            );
+
+
+        if (!form || !button) {
+            return;
+        }
+
+
+        form.addEventListener(
+            "submit",
+            function () {
+
+                if (form.dataset.submitted === "1") {
+
+                    return;
+
+                }
+
+
+                form.dataset.submitted = "1";
+
+
+                button.disabled = true;
+
+
+                button.innerHTML =
+                    '<span class="spinner-border spinner-border-sm"></span>' +
+                    '<span>Menyimpan...</span>';
+
+            }
+        );
+
+    }
+);
+
+</script>
+
 
 <?php include "../template/footer.php"; ?>

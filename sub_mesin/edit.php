@@ -1,178 +1,1682 @@
 <?php
 include "../koneksi.php";
 
-$error = "";
+/* =========================================================
+   PARAMETER ID
+========================================================= */
+
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-// Ambil data sub mesin berdasarkan ID
-$stmt_get = mysqli_prepare($conn, "SELECT * FROM sub_mesin WHERE id = ?");
-mysqli_stmt_bind_param($stmt_get, "i", $id);
-mysqli_stmt_execute($stmt_get);
-$result = mysqli_stmt_get_result($stmt_get);
-$data = mysqli_fetch_assoc($result);
-mysqli_stmt_close($stmt_get);
-
-if (!$data) {
-    echo "<script>alert('Data sub mesin tidak ditemukan!'); window.location='index.php';</script>";
+if ($id <= 0) {
+    header("Location: index.php");
     exit;
 }
 
-$val_id_mesin       = $data['id_mesin'];
-$val_nama_sub_mesin = $data['nama_sub_mesin'];
-$val_keterangan     = $data['keterangan'];
-$nama_gambar        = $data['gambar'];
+
+/* =========================================================
+   VARIABEL
+========================================================= */
+
+$error = "";
+$success = "";
+
+$val_id_mesin       = 0;
+$val_nama_sub_mesin = "";
+$val_keterangan     = "";
+$nama_gambar        = "";
+
+
+/* =========================================================
+   AMBIL DATA SUB MESIN
+========================================================= */
+
+$stmt_get = mysqli_prepare($conn, "
+    SELECT
+        sm.*,
+        m.nama_mesin,
+        m.lokasi AS lokasi_mesin,
+        m.serial_number AS sn_mesin
+    FROM sub_mesin sm
+    LEFT JOIN mesin m
+        ON sm.id_mesin = m.id
+    WHERE sm.id = ?
+    LIMIT 1
+");
+
+if (!$stmt_get) {
+    die("Query gagal diproses.");
+}
+
+mysqli_stmt_bind_param($stmt_get, "i", $id);
+mysqli_stmt_execute($stmt_get);
+
+$result = mysqli_stmt_get_result($stmt_get);
+$data = mysqli_fetch_assoc($result);
+
+mysqli_stmt_close($stmt_get);
+
+
+/* =========================================================
+   JIKA DATA TIDAK DITEMUKAN
+========================================================= */
+
+if (!$data) {
+    header("Location: index.php");
+    exit;
+}
+
+
+/* =========================================================
+   NILAI AWAL FORM
+========================================================= */
+
+$val_id_mesin       = intval($data['id_mesin'] ?? 0);
+$val_nama_sub_mesin = $data['nama_sub_mesin'] ?? "";
+$val_keterangan     = $data['keterangan'] ?? "";
+$nama_gambar        = $data['gambar'] ?? "";
+
+
+/* =========================================================
+   PROSES UPDATE
+========================================================= */
 
 if (isset($_POST['update'])) {
+
+    /* =====================================================
+       AMBIL DATA FORM
+    ====================================================== */
+
     $val_id_mesin       = intval($_POST['id_mesin'] ?? 0);
     $val_nama_sub_mesin = trim($_POST['nama_sub_mesin'] ?? '');
     $val_keterangan     = trim($_POST['keterangan'] ?? '');
 
-    // Logika Ganti Foto Sub Mesin
-    if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] === UPLOAD_ERR_OK) {
-        $fileTmpPath   = $_FILES['gambar']['tmp_name'];
-        $fileName      = $_FILES['gambar']['name'];
-        $fileSize      = $_FILES['gambar']['size'];
+    $foto_baru = "";
+    $upload_berhasil = false;
 
-        $fileExtension     = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
 
-        if (in_array($fileExtension, $allowedExtensions)) {
-            if ($fileSize <= 2 * 1024 * 1024) { // Maksimal 2MB
-                $foto_baru = "submesin_" . time() . "_" . uniqid() . "." . $fileExtension;
-                $targetDir = "../uploads/sub_mesin/";
+    /* =====================================================
+       VALIDASI FORM
+    ====================================================== */
 
-                if (!is_dir($targetDir)) {
-                    mkdir($targetDir, 0777, true);
-                }
+    if ($val_id_mesin <= 0) {
 
-                if (move_uploaded_file($fileTmpPath, $targetDir . $foto_baru)) {
-                    // Hapus foto lama jika ada
-                    if (!empty($nama_gambar) && file_exists($targetDir . $nama_gambar)) {
-                        @unlink($targetDir . $nama_gambar);
-                    }
-                    $nama_gambar = $foto_baru;
-                } else {
-                    $error = "Gagal mengunggah foto baru ke server.";
-                }
-            } else {
-                $error = "Ukuran gambar terlalu besar! Maksimal 2MB.";
-            }
-        } else {
-            $error = "Format gambar tidak valid! Hanya diperbolehkan JPG, JPEG, PNG, dan WEBP.";
-        }
+        $error = "Mesin Induk wajib dipilih.";
+
+    } elseif ($val_nama_sub_mesin === '') {
+
+        $error = "Nama Sub Mesin wajib diisi.";
+
     }
 
-    // Validasi Form Wajib
-    if (empty($val_id_mesin) || empty($val_nama_sub_mesin)) {
-        $error = "Mesin Induk dan Nama Sub Mesin wajib diisi!";
-    }
 
-    // Jika Tidak Ada Error, Lakukan Update
+    /* =====================================================
+       CEK MESIN INDUK
+    ====================================================== */
+
     if (empty($error)) {
-        $stmt_update = mysqli_prepare($conn, "UPDATE sub_mesin SET id_mesin = ?, nama_sub_mesin = ?, keterangan = ?, gambar = ? WHERE id = ?");
-        mysqli_stmt_bind_param($stmt_update, "isssi", $val_id_mesin, $val_nama_sub_mesin, $val_keterangan, $nama_gambar, $id);
 
-        if (mysqli_stmt_execute($stmt_update)) {
-            mysqli_stmt_close($stmt_update);
-            echo "<script>alert('Data sub mesin berhasil diperbarui!'); window.location='index.php';</script>";
-            exit;
+        $stmt_check_mesin = mysqli_prepare($conn, "
+            SELECT id
+            FROM mesin
+            WHERE id = ?
+            LIMIT 1
+        ");
+
+        if ($stmt_check_mesin) {
+
+            mysqli_stmt_bind_param(
+                $stmt_check_mesin,
+                "i",
+                $val_id_mesin
+            );
+
+            mysqli_stmt_execute($stmt_check_mesin);
+
+            $result_check_mesin =
+                mysqli_stmt_get_result($stmt_check_mesin);
+
+            $mesin_valid =
+                mysqli_fetch_assoc($result_check_mesin);
+
+            mysqli_stmt_close($stmt_check_mesin);
+
+            if (!$mesin_valid) {
+                $error = "Mesin Induk yang dipilih tidak ditemukan.";
+            }
+
         } else {
-            $error = "Gagal memperbarui data: " . mysqli_error($conn);
+
+            $error = "Gagal memeriksa data Mesin Induk.";
         }
-        mysqli_stmt_close($stmt_update);
+    }
+
+
+    /* =====================================================
+       PROSES UPLOAD FOTO
+    ====================================================== */
+
+    if (
+        empty($error) &&
+        isset($_FILES['gambar']) &&
+        $_FILES['gambar']['error'] !== UPLOAD_ERR_NO_FILE
+    ) {
+
+        /* -------------------------------------------------
+           CEK ERROR UPLOAD
+        ------------------------------------------------- */
+
+        if ($_FILES['gambar']['error'] !== UPLOAD_ERR_OK) {
+
+            $error = "Terjadi masalah saat mengunggah foto.";
+
+        } else {
+
+            $fileTmpPath = $_FILES['gambar']['tmp_name'];
+            $fileName    = $_FILES['gambar']['name'];
+            $fileSize    = intval($_FILES['gambar']['size']);
+
+            /* -------------------------------------------------
+               MAKSIMAL 2MB
+            ------------------------------------------------- */
+
+            if ($fileSize > 2 * 1024 * 1024) {
+
+                $error = "Ukuran foto terlalu besar. Maksimal 2MB.";
+
+            } else {
+
+                /* -------------------------------------------------
+                   CEK EXTENSION
+                ------------------------------------------------- */
+
+                $fileExtension =
+                    strtolower(
+                        pathinfo(
+                            $fileName,
+                            PATHINFO_EXTENSION
+                        )
+                    );
+
+                $allowedExtensions = [
+                    'jpg',
+                    'jpeg',
+                    'png',
+                    'webp'
+                ];
+
+                if (!in_array(
+                    $fileExtension,
+                    $allowedExtensions,
+                    true
+                )) {
+
+                    $error =
+                        "Format foto tidak valid. " .
+                        "Gunakan JPG, JPEG, PNG, atau WEBP.";
+
+                } else {
+
+                    /* -------------------------------------------------
+                       CEK MIME TYPE
+                    ------------------------------------------------- */
+
+                    $allowedMimeTypes = [
+                        'image/jpeg',
+                        'image/png',
+                        'image/webp'
+                    ];
+
+                    $mimeType = '';
+
+                    if (function_exists('finfo_open')) {
+
+                        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+
+                        if ($finfo) {
+
+                            $mimeType =
+                                finfo_file(
+                                    $finfo,
+                                    $fileTmpPath
+                                );
+
+                            finfo_close($finfo);
+                        }
+                    } elseif (function_exists('mime_content_type')) {
+
+                        $mimeType =
+                            mime_content_type(
+                                $fileTmpPath
+                            );
+                    }
+
+                    if (
+                        !empty($mimeType) &&
+                        !in_array(
+                            $mimeType,
+                            $allowedMimeTypes,
+                            true
+                        )
+                    ) {
+
+                        $error =
+                            "File yang diupload bukan file gambar yang valid.";
+
+                    }
+
+                }
+            }
+        }
+    }
+
+
+    /* =====================================================
+       SIMPAN FOTO BARU KE SERVER
+    ====================================================== */
+
+    if (
+        empty($error) &&
+        isset($_FILES['gambar']) &&
+        $_FILES['gambar']['error'] === UPLOAD_ERR_OK
+    ) {
+
+        $fileExtension =
+            strtolower(
+                pathinfo(
+                    $_FILES['gambar']['name'],
+                    PATHINFO_EXTENSION
+                )
+            );
+
+        $targetDir = "../uploads/sub_mesin/";
+
+        /* -------------------------------------------------
+           BUAT FOLDER JIKA BELUM ADA
+        ------------------------------------------------- */
+
+        if (!is_dir($targetDir)) {
+
+            if (!mkdir($targetDir, 0755, true)) {
+
+                $error =
+                    "Folder upload sub mesin tidak dapat dibuat.";
+            }
+        }
+
+
+        /* -------------------------------------------------
+           GENERATE NAMA FILE
+        ------------------------------------------------- */
+
+        if (empty($error)) {
+
+            $foto_baru =
+                "submesin_" .
+                date('Ymd_His') .
+                "_" .
+                bin2hex(random_bytes(5)) .
+                "." .
+                $fileExtension;
+
+            $targetPath =
+                $targetDir . $foto_baru;
+
+
+            /* -------------------------------------------------
+               PINDAHKAN FILE
+            ------------------------------------------------- */
+
+            if (
+                move_uploaded_file(
+                    $_FILES['gambar']['tmp_name'],
+                    $targetPath
+                )
+            ) {
+
+                $upload_berhasil = true;
+
+            } else {
+
+                $error =
+                    "Gagal mengunggah foto baru ke server.";
+            }
+        }
+    }
+
+
+    /* =====================================================
+       UPDATE DATABASE
+    ====================================================== */
+
+    if (empty($error)) {
+
+        /*
+         * Jika ada foto baru:
+         * gunakan foto baru.
+         *
+         * Jika tidak:
+         * tetap gunakan foto lama.
+         */
+
+        $gambar_update =
+            $upload_berhasil
+                ? $foto_baru
+                : $nama_gambar;
+
+
+        $stmt_update = mysqli_prepare($conn, "
+            UPDATE sub_mesin
+            SET
+                id_mesin = ?,
+                nama_sub_mesin = ?,
+                keterangan = ?,
+                gambar = ?
+            WHERE id = ?
+        ");
+
+        if (!$stmt_update) {
+
+            $error =
+                "Query update tidak dapat diproses.";
+
+        } else {
+
+            mysqli_stmt_bind_param(
+                $stmt_update,
+                "isssi",
+                $val_id_mesin,
+                $val_nama_sub_mesin,
+                $val_keterangan,
+                $gambar_update,
+                $id
+            );
+
+
+            if (mysqli_stmt_execute($stmt_update)) {
+
+                mysqli_stmt_close($stmt_update);
+
+
+                /* ---------------------------------------------
+                   HAPUS FOTO LAMA SETELAH DATABASE BERHASIL
+                --------------------------------------------- */
+
+                if (
+                    $upload_berhasil &&
+                    !empty($nama_gambar) &&
+                    $nama_gambar !== $foto_baru
+                ) {
+
+                    $oldFile =
+                        "../uploads/sub_mesin/" .
+                        basename($nama_gambar);
+
+                    if (
+                        file_exists($oldFile) &&
+                        is_file($oldFile)
+                    ) {
+
+                        @unlink($oldFile);
+                    }
+                }
+
+
+                /* ---------------------------------------------
+                   REDIRECT
+                --------------------------------------------- */
+
+                header(
+                    "Location: index.php?updated=1"
+                );
+
+                exit;
+
+            } else {
+
+                $error =
+                    "Gagal memperbarui data sub mesin: " .
+                    mysqli_stmt_error($stmt_update);
+
+                mysqli_stmt_close($stmt_update);
+
+
+                /* ---------------------------------------------
+                   JIKA DATABASE GAGAL, HAPUS FOTO BARU
+                --------------------------------------------- */
+
+                if (
+                    $upload_berhasil &&
+                    !empty($foto_baru)
+                ) {
+
+                    $newFile =
+                        "../uploads/sub_mesin/" .
+                        basename($foto_baru);
+
+                    if (
+                        file_exists($newFile) &&
+                        is_file($newFile)
+                    ) {
+
+                        @unlink($newFile);
+                    }
+                }
+            }
+        }
     }
 }
 
-// Ambil daftar Mesin Induk untuk Dropdown Relasi
-$q_mesin = mysqli_query($conn, "SELECT id, nama_mesin, lokasi FROM mesin ORDER BY nama_mesin ASC");
+
+/* =========================================================
+   AMBIL DAFTAR MESIN INDUK
+========================================================= */
+
+$q_mesin = mysqli_query($conn, "
+    SELECT
+        id,
+        nama_mesin,
+        lokasi,
+        serial_number
+    FROM mesin
+    ORDER BY nama_mesin ASC
+");
+
+
+/* =========================================================
+   DATA FOTO SAAT INI
+========================================================= */
+
+$foto_lama_path =
+    "../uploads/sub_mesin/" .
+    basename($nama_gambar);
+
+$ada_foto_lama =
+    !empty($nama_gambar) &&
+    file_exists($foto_lama_path) &&
+    is_file($foto_lama_path);
+
+
+/* =========================================================
+   INCLUDE HEADER
+========================================================= */
 
 include "../template/header.php";
 ?>
 
-<div class="container-fluid p-0">
 
-  <!-- HEADER -->
-  <div class="dashboard-header mb-3 py-3 px-4">
-    <div class="d-flex align-items-center gap-3">
-      <a href="index.php" class="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 38px; height: 38px; flex-shrink: 0;">
-        <i class="bi bi-arrow-left fs-5"></i>
-      </a>
-      <div>
-        <h3 class="dashboard-title m-0 fs-4 fw-bold">Edit Sub Mesin</h3>
-        <p class="dashboard-subtitle m-0 small text-muted">Perbarui informasi data sub mesin</p>
-      </div>
-    </div>
-  </div>
+<style>
 
-  <!-- FORM CARD -->
-  <div class="content-card mb-3">
-    <div class="card-header-custom py-2 px-3">
-      <h6 class="card-title-custom m-0 fw-bold">
-        <i class="bi bi-pencil-square me-2"></i>Form Edit Sub Mesin
-      </h6>
-    </div>
-    
-    <div class="card-body-custom p-3">
-      <?php if (!empty($error)) : ?>
-        <div class="alert alert-danger border-0 d-flex align-items-center py-2 px-3 mb-3" role="alert">
-          <i class="bi bi-exclamation-triangle-fill fs-6 me-2"></i>
-          <div class="small"><?= htmlspecialchars($error); ?></div>
+/* =========================================================
+   PAGE
+========================================================= */
+
+.sub-edit-page {
+    width: 100%;
+}
+
+
+/* =========================================================
+   TOP HEADER
+========================================================= */
+
+.sub-edit-header {
+
+    background: #ffffff;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 16px;
+
+    padding: 18px 20px;
+
+    margin-bottom: 20px;
+
+    box-shadow:
+        0 3px 12px rgba(15, 23, 42, .04);
+}
+
+
+.sub-edit-back {
+
+    width: 42px;
+
+    height: 42px;
+
+    flex-shrink: 0;
+
+    border-radius: 10px;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    background: #ffffff;
+
+    border: 1px solid #dbe3ea;
+
+    color: #475569;
+
+    text-decoration: none;
+
+    transition: .2s;
+}
+
+
+.sub-edit-back:hover {
+
+    background: #005baa;
+
+    border-color: #005baa;
+
+    color: #ffffff;
+
+}
+
+
+.sub-edit-title {
+
+    font-size: 24px;
+
+    font-weight: 800;
+
+    color: #172033;
+
+    margin: 0;
+
+    line-height: 1.3;
+}
+
+
+.sub-edit-subtitle {
+
+    color: #64748b;
+
+    font-size: 13px;
+
+    margin-top: 3px;
+}
+
+
+/* =========================================================
+   MAIN CARD
+========================================================= */
+
+.sub-edit-card {
+
+    background: #ffffff;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 16px;
+
+    overflow: hidden;
+
+    box-shadow:
+        0 3px 12px rgba(15, 23, 42, .04);
+}
+
+
+.sub-edit-card-header {
+
+    padding: 17px 20px;
+
+    border-bottom: 1px solid #e5e7eb;
+
+    background: #ffffff;
+}
+
+
+.sub-edit-card-title {
+
+    color: #172033;
+
+    font-size: 16px;
+
+    font-weight: 700;
+
+    margin: 0;
+}
+
+
+.sub-edit-card-subtitle {
+
+    color: #94a3b8;
+
+    font-size: 12px;
+
+    margin-top: 3px;
+}
+
+
+.sub-edit-card-body {
+
+    padding: 22px;
+}
+
+
+/* =========================================================
+   FORM
+========================================================= */
+
+.sub-edit-label {
+
+    display: block;
+
+    color: #334155;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    margin-bottom: 7px;
+}
+
+
+.sub-edit-required {
+
+    color: #dc2626;
+}
+
+
+.sub-edit-input,
+.sub-edit-select,
+.sub-edit-textarea {
+
+    border: 1px solid #dbe3ea;
+
+    border-radius: 9px;
+
+    font-size: 13px;
+
+    color: #334155;
+
+    transition: .2s;
+}
+
+
+.sub-edit-input,
+.sub-edit-select {
+
+    min-height: 42px;
+}
+
+
+.sub-edit-textarea {
+
+    resize: vertical;
+
+    min-height: 110px;
+}
+
+
+.sub-edit-input:focus,
+.sub-edit-select:focus,
+.sub-edit-textarea:focus {
+
+    border-color: #0076c8;
+
+    box-shadow:
+        0 0 0 3px rgba(0, 118, 200, .08);
+
+    outline: none;
+}
+
+
+/* =========================================================
+   MESIN INDUK INFO
+========================================================= */
+
+.sub-machine-info {
+
+    margin-top: 8px;
+
+    padding: 9px 11px;
+
+    background: #f8fafc;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 8px;
+
+    font-size: 11px;
+
+    color: #64748b;
+
+    line-height: 1.5;
+}
+
+
+.sub-machine-info strong {
+
+    color: #334155;
+}
+
+
+/* =========================================================
+   PHOTO SECTION
+========================================================= */
+
+.sub-photo-current {
+
+    margin-bottom: 12px;
+
+    padding: 12px;
+
+    background: #f8fafc;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 12px;
+}
+
+
+.sub-photo-preview {
+
+    width: 110px;
+
+    height: 110px;
+
+    border-radius: 10px;
+
+    border: 1px solid #dbe3ea;
+
+    background: #ffffff;
+
+    overflow: hidden;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+}
+
+
+.sub-photo-preview img {
+
+    width: 100%;
+
+    height: 100%;
+
+    object-fit: cover;
+}
+
+
+.sub-photo-file {
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    color: #334155;
+
+    word-break: break-word;
+}
+
+
+.sub-photo-description {
+
+    font-size: 11px;
+
+    color: #94a3b8;
+
+    margin-top: 3px;
+
+    line-height: 1.5;
+}
+
+
+.sub-no-photo {
+
+    width: 110px;
+
+    height: 110px;
+
+    border-radius: 10px;
+
+    background: #eef5ff;
+
+    border: 1px solid #d8eaff;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: #005baa;
+
+    flex-shrink: 0;
+}
+
+
+.sub-no-photo i {
+
+    font-size: 30px;
+}
+
+
+.sub-no-photo span {
+
+    font-size: 10px;
+
+    margin-top: 4px;
+}
+
+
+/* =========================================================
+   FILE INPUT
+========================================================= */
+
+.sub-edit-file {
+
+    border: 1px solid #dbe3ea;
+
+    border-radius: 9px;
+
+    font-size: 12px;
+
+    padding: 8px;
+}
+
+
+.sub-edit-file:focus {
+
+    border-color: #0076c8;
+
+    box-shadow:
+        0 0 0 3px rgba(0, 118, 200, .08);
+}
+
+
+.sub-file-help {
+
+    color: #94a3b8;
+
+    font-size: 11px;
+
+    margin-top: 5px;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   ALERT
+========================================================= */
+
+.sub-edit-alert {
+
+    border-radius: 10px;
+
+    font-size: 12px;
+
+    margin-bottom: 20px;
+}
+
+
+/* =========================================================
+   FORM FOOTER
+========================================================= */
+
+.sub-edit-footer {
+
+    border-top: 1px solid #e5e7eb;
+
+    margin-top: 22px;
+
+    padding-top: 18px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 12px;
+
+    flex-wrap: wrap;
+}
+
+
+.sub-edit-actions {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    flex-wrap: wrap;
+}
+
+
+.sub-btn {
+
+    min-height: 40px;
+
+    border-radius: 9px;
+
+    padding: 8px 16px;
+
+    font-size: 13px;
+
+    font-weight: 600;
+}
+
+
+.sub-btn-primary {
+
+    background: linear-gradient(
+        135deg,
+        #005baa,
+        #0076c8
+    );
+
+    border: none;
+
+    color: #ffffff;
+}
+
+
+.sub-btn-primary:hover {
+
+    color: #ffffff;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 6px 16px rgba(0, 91, 170, .18);
+}
+
+
+.sub-btn-cancel {
+
+    background: #ffffff;
+
+    border: 1px solid #dbe3ea;
+
+    color: #475569;
+}
+
+
+.sub-btn-cancel:hover {
+
+    background: #f8fafc;
+
+    color: #334155;
+}
+
+
+/* =========================================================
+   INFO NOTE
+========================================================= */
+
+.sub-edit-note {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 8px;
+
+    color: #64748b;
+
+    font-size: 11px;
+
+    line-height: 1.5;
+
+    max-width: 480px;
+}
+
+
+.sub-edit-note i {
+
+    color: #005baa;
+
+    margin-top: 1px;
+}
+
+
+/* =========================================================
+   RESPONSIVE TABLET
+========================================================= */
+
+@media (max-width: 992px) {
+
+    .sub-edit-title {
+
+        font-size: 22px;
+    }
+
+    .sub-edit-card-body {
+
+        padding: 18px;
+    }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE MOBILE
+========================================================= */
+
+@media (max-width: 768px) {
+
+    .sub-edit-header {
+
+        padding: 15px;
+
+        border-radius: 13px;
+    }
+
+
+    .sub-edit-title {
+
+        font-size: 20px;
+    }
+
+
+    .sub-edit-subtitle {
+
+        font-size: 12px;
+    }
+
+
+    .sub-edit-back {
+
+        width: 38px;
+
+        height: 38px;
+    }
+
+
+    .sub-edit-card {
+
+        border-radius: 13px;
+    }
+
+
+    .sub-edit-card-header {
+
+        padding: 15px;
+    }
+
+
+    .sub-edit-card-body {
+
+        padding: 15px;
+    }
+
+
+    .sub-photo-current {
+
+        align-items: flex-start !important;
+
+        flex-direction: column;
+    }
+
+
+    .sub-photo-preview,
+    .sub-no-photo {
+
+        width: 100%;
+
+        max-width: 180px;
+
+        height: 140px;
+    }
+
+
+    .sub-edit-footer {
+
+        align-items: stretch;
+
+        flex-direction: column;
+    }
+
+
+    .sub-edit-note {
+
+        max-width: none;
+
+        order: 2;
+    }
+
+
+    .sub-edit-actions {
+
+        width: 100%;
+
+        display: flex;
+    }
+
+
+    .sub-edit-actions .sub-btn {
+
+        flex: 1;
+
+        min-width: 120px;
+    }
+
+}
+
+
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 480px) {
+
+    .sub-edit-header {
+
+        padding: 13px;
+    }
+
+
+    .sub-edit-title {
+
+        font-size: 18px;
+    }
+
+
+    .sub-edit-card-body {
+
+        padding: 13px;
+    }
+
+
+    .sub-edit-card-title {
+
+        font-size: 15px;
+    }
+
+
+    .sub-edit-actions {
+
+        flex-direction: column;
+    }
+
+
+    .sub-edit-actions .sub-btn {
+
+        width: 100%;
+
+        flex: none;
+    }
+
+}
+
+</style>
+
+
+<div class="container-fluid p-0 sub-edit-page">
+
+
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
+
+    <div class="sub-edit-header">
+
+        <div class="d-flex align-items-center gap-3">
+
+            <a
+                href="index.php"
+                class="sub-edit-back"
+                title="Kembali"
+            >
+
+                <i class="bi bi-arrow-left"></i>
+
+            </a>
+
+
+            <div>
+
+                <h2 class="sub-edit-title">
+
+                    Edit Sub Mesin
+
+                </h2>
+
+                <div class="sub-edit-subtitle">
+
+                    Perbarui informasi sub mesin yang terdaftar
+                    di dalam sistem.
+
+                </div>
+
+            </div>
+
         </div>
-      <?php endif; ?>
 
-      <form method="POST" enctype="multipart/form-data">
-        <div class="row g-3">
-          <!-- MESIN INDUK -->
-          <div class="col-md-6">
-            <label class="form-label fw-semibold text-dark small mb-1">Pilih Mesin Induk <span class="text-danger">*</span></label>
-            <select name="id_mesin" class="form-select form-select-sm" required>
-              <option value="">-- Pilih Mesin --</option>
-              <?php while ($m = mysqli_fetch_assoc($q_mesin)) : ?>
-                <option value="<?= $m['id']; ?>" <?= ($val_id_mesin == $m['id']) ? 'selected' : ''; ?>>
-                  <?= htmlspecialchars($m['nama_mesin']); ?> (<?= htmlspecialchars($m['lokasi'] ?: 'No Location'); ?>)
-                </option>
-              <?php endwhile; ?>
-            </select>
-          </div>
+    </div>
 
-          <!-- NAMA SUB MESIN -->
-          <div class="col-md-6">
-            <label class="form-label fw-semibold text-dark small mb-1">Nama Sub Mesin <span class="text-danger">*</span></label>
-            <input type="text" name="nama_sub_mesin" class="form-control form-control-sm" value="<?= htmlspecialchars($val_nama_sub_mesin) ?>" required>
-          </div>
 
-          <!-- UPLOAD FOTO SUB MESIN -->
-          <div class="col-md-6">
-            <label class="form-label fw-semibold text-dark small mb-1">Ganti Foto Sub Mesin</label>
-            <input type="file" name="gambar" class="form-control form-control-sm" accept="image/png, image/jpeg, image/jpg, image/webp">
-            <div class="form-text mt-1 text-muted small" style="font-size: 0.75rem;">Biarkan kosong jika tidak ingin mengubah foto.</div>
-            <?php if (!empty($data['gambar']) && file_exists("../uploads/sub_mesin/" . $data['gambar'])) : ?>
-              <div class="mt-2">
-                <img src="../uploads/sub_mesin/<?= htmlspecialchars($data['gambar']); ?>" alt="Foto Sub Mesin" class="img-thumbnail" style="max-height: 100px;">
-              </div>
+
+    <!-- =====================================================
+         MAIN CARD
+    ====================================================== -->
+
+    <div class="sub-edit-card">
+
+
+        <!-- =================================================
+             CARD HEADER
+        ================================================== -->
+
+        <div class="sub-edit-card-header">
+
+            <div>
+
+                <h5 class="sub-edit-card-title">
+
+                    <i class="bi bi-pencil-square text-primary me-2"></i>
+
+                    Form Edit Sub Mesin
+
+                </h5>
+
+                <div class="sub-edit-card-subtitle">
+
+                    Periksa kembali data sebelum menyimpan perubahan.
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- =================================================
+             CARD BODY
+        ================================================== -->
+
+        <div class="sub-edit-card-body">
+
+
+            <!-- =================================================
+                 ERROR
+            ================================================== -->
+
+            <?php if (!empty($error)): ?>
+
+                <div
+                    class="alert alert-danger border-0 sub-edit-alert d-flex align-items-start gap-2"
+                    role="alert"
+                >
+
+                    <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+
+                    <div>
+
+                        <?= htmlspecialchars($error) ?>
+
+                    </div>
+
+                </div>
+
             <?php endif; ?>
-          </div>
 
-          <!-- KETERANGAN / DESKRIPSI -->
-          <div class="col-12">
-            <label class="form-label fw-semibold text-dark small mb-1">Keterangan / Deskripsi</label>
-            <textarea name="keterangan" class="form-control form-control-sm" rows="3"><?= htmlspecialchars($val_keterangan) ?></textarea>
-          </div>
-        </div>
 
-        <div class="border-top mt-3 pt-3 d-flex align-items-center gap-2">
-          <button type="submit" name="update" class="btn btn-primary px-4 btn-sm fw-semibold">
-            <i class="bi bi-save me-1"></i> Perbarui
-          </button>
-          <a href="index.php" class="btn btn-light border px-4 btn-sm fw-semibold text-secondary">
-            Batal
-          </a>
+
+            <!-- =================================================
+                 FORM
+            ================================================== -->
+
+            <form
+                method="POST"
+                enctype="multipart/form-data"
+            >
+
+
+                <div class="row g-4">
+
+
+                    <!-- =================================================
+                         MESIN INDUK
+                    ================================================== -->
+
+                    <div class="col-lg-6">
+
+                        <label class="sub-edit-label">
+
+                            Mesin Induk
+
+                            <span class="sub-edit-required">*</span>
+
+                        </label>
+
+
+                        <select
+                            name="id_mesin"
+                            class="form-select sub-edit-select"
+                            required
+                        >
+
+                            <option value="">
+
+                                -- Pilih Mesin Induk --
+
+                            </option>
+
+
+                            <?php if ($q_mesin): ?>
+
+                                <?php while ($m = mysqli_fetch_assoc($q_mesin)): ?>
+
+                                    <option
+                                        value="<?= intval($m['id']) ?>"
+                                        <?= (
+                                            $val_id_mesin ==
+                                            intval($m['id'])
+                                        )
+                                            ? 'selected'
+                                            : ''
+                                        ?>
+                                    >
+
+                                        <?= htmlspecialchars(
+                                            $m['nama_mesin'] ?? '-'
+                                        ) ?>
+
+                                        <?php if (!empty($m['serial_number'])): ?>
+
+                                            -
+                                            <?= htmlspecialchars(
+                                                $m['serial_number']
+                                            ) ?>
+
+                                        <?php endif; ?>
+
+                                    </option>
+
+                                <?php endwhile; ?>
+
+                            <?php endif; ?>
+
+                        </select>
+
+
+                        <!-- INFO MESIN TERPILIH -->
+
+                        <div class="sub-machine-info">
+
+                            <i class="bi bi-info-circle me-1"></i>
+
+                            Pastikan sub mesin ditempatkan pada
+                            <strong>mesin induk yang benar</strong>.
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- =================================================
+                         NAMA SUB MESIN
+                    ================================================== -->
+
+                    <div class="col-lg-6">
+
+                        <label class="sub-edit-label">
+
+                            Nama Sub Mesin
+
+                            <span class="sub-edit-required">*</span>
+
+                        </label>
+
+
+                        <input
+                            type="text"
+                            name="nama_sub_mesin"
+                            class="form-control sub-edit-input"
+                            value="<?= htmlspecialchars(
+                                $val_nama_sub_mesin
+                            ) ?>"
+                            placeholder="Contoh: Conveyor Feeder"
+                            maxlength="150"
+                            required
+                        >
+
+
+                        <div class="form-text">
+
+                            Gunakan nama yang mudah dikenali
+                            oleh teknisi atau operator.
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- =================================================
+                         FOTO
+                    ================================================== -->
+
+                    <div class="col-lg-6">
+
+                        <label class="sub-edit-label">
+
+                            Foto Sub Mesin
+
+                        </label>
+
+
+                        <!-- FOTO SAAT INI -->
+
+                        <div class="sub-photo-current">
+
+                            <div class="d-flex align-items-center gap-3">
+
+
+                                <?php if ($ada_foto_lama): ?>
+
+                                    <div class="sub-photo-preview">
+
+                                        <img
+                                            src="<?= htmlspecialchars(
+                                                $foto_lama_path
+                                            ) ?>"
+                                            alt="Foto Sub Mesin"
+                                        >
+
+                                    </div>
+
+                                <?php else: ?>
+
+                                    <div class="sub-no-photo">
+
+                                        <i class="bi bi-image"></i>
+
+                                        <span>
+                                            Tidak ada foto
+                                        </span>
+
+                                    </div>
+
+                                <?php endif; ?>
+
+
+                                <div>
+
+                                    <div class="sub-photo-file">
+
+                                        <?php if ($ada_foto_lama): ?>
+
+                                            Foto Saat Ini
+
+                                        <?php else: ?>
+
+                                            Belum Ada Foto
+
+                                        <?php endif; ?>
+
+                                    </div>
+
+
+                                    <?php if ($ada_foto_lama): ?>
+
+                                        <div class="sub-photo-description">
+
+                                            <?= htmlspecialchars(
+                                                $nama_gambar
+                                            ) ?>
+
+                                        </div>
+
+                                    <?php endif; ?>
+
+
+                                    <div class="sub-photo-description mt-2">
+
+                                        Pilih foto baru jika ingin
+                                        mengganti foto saat ini.
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- INPUT FOTO BARU -->
+
+                        <input
+                            type="file"
+                            name="gambar"
+                            class="form-control sub-edit-file"
+                            accept="image/jpeg,image/png,image/webp"
+                        >
+
+
+                        <div class="sub-file-help">
+
+                            <i class="bi bi-info-circle me-1"></i>
+
+                            Format yang diperbolehkan:
+                            JPG, JPEG, PNG, WEBP.
+                            Maksimal ukuran 2MB.
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- =================================================
+                         KETERANGAN
+                    ================================================== -->
+
+                    <div class="col-lg-6">
+
+                        <label class="sub-edit-label">
+
+                            Keterangan / Deskripsi
+
+                        </label>
+
+
+                        <textarea
+                            name="keterangan"
+                            class="form-control sub-edit-textarea"
+                            rows="5"
+                            maxlength="1000"
+                            placeholder="Masukkan fungsi, spesifikasi, atau catatan mengenai sub mesin..."
+                        ><?= htmlspecialchars(
+                            $val_keterangan
+                        ) ?></textarea>
+
+
+                        <div class="form-text">
+
+                            Jelaskan fungsi atau informasi tambahan
+                            mengenai sub mesin jika diperlukan.
+
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+
+
+                <!-- =================================================
+                     FOOTER FORM
+                ================================================== -->
+
+                <div class="sub-edit-footer">
+
+
+                    <div class="sub-edit-note">
+
+                        <i class="bi bi-shield-check"></i>
+
+                        <span>
+
+                            Data akan diperbarui setelah tombol
+                            <strong>Perbarui Data</strong> ditekan.
+                            Foto lama akan tetap digunakan jika
+                            tidak memilih foto baru.
+
+                        </span>
+
+                    </div>
+
+
+                    <div class="sub-edit-actions">
+
+
+                        <a
+                            href="index.php"
+                            class="btn sub-btn sub-btn-cancel"
+                        >
+
+                            <i class="bi bi-x-lg me-1"></i>
+
+                            Batal
+
+                        </a>
+
+
+                        <button
+                            type="submit"
+                            name="update"
+                            class="btn sub-btn sub-btn-primary"
+                        >
+
+                            <i class="bi bi-check-lg me-1"></i>
+
+                            Perbarui Data
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+            </form>
+
         </div>
-      </form>
 
     </div>
-  </div>
 
 </div>
+
 
 <?php include "../template/footer.php"; ?>

@@ -31,6 +31,7 @@ if (isset($_POST['update_status_maintenance'])) {
             $id_komp = intval($data_maint['id_komponen']);
 
             if ($id_komp > 0) {
+
                 mysqli_query(
                     $conn,
                     "UPDATE komponen 
@@ -52,7 +53,10 @@ if (isset($_POST['update_status_maintenance'])) {
 if (isset($_POST['update_kondisi_komponen'])) {
 
     $id_komp = intval($_POST['id_komponen']);
-    $kondisi_baru = mysqli_real_escape_string($conn, $_POST['kondisi']);
+    $kondisi_baru = mysqli_real_escape_string(
+        $conn,
+        $_POST['kondisi']
+    );
 
     mysqli_query(
         $conn,
@@ -76,20 +80,49 @@ include "../template/header.php";
    STATISTIK DASHBOARD
 ========================================================= */
 
+/* TOTAL LOKASI UNIK */
+$d_total_lokasi = mysqli_fetch_assoc(
+    mysqli_query(
+        $conn,
+        "SELECT COUNT(DISTINCT lokasi) AS total
+         FROM area_bagian
+         WHERE lokasi IS NOT NULL
+         AND lokasi != ''"
+    )
+)['total'];
+
+
+/* TOTAL AREA / BAGIAN */
+$d_total_area = mysqli_fetch_assoc(
+    mysqli_query(
+        $conn,
+        "SELECT COUNT(*) AS total
+         FROM area_bagian"
+    )
+)['total'];
+
+
+/* TOTAL MESIN */
 $d_total_mesin = mysqli_fetch_assoc(
     mysqli_query(
         $conn,
-        "SELECT COUNT(*) AS total FROM mesin"
+        "SELECT COUNT(*) AS total
+         FROM mesin"
     )
 )['total'];
 
+
+/* TOTAL KOMPONEN */
 $d_total_komponen = mysqli_fetch_assoc(
     mysqli_query(
         $conn,
-        "SELECT COUNT(*) AS total FROM komponen"
+        "SELECT COUNT(*) AS total
+         FROM komponen"
     )
 )['total'];
 
+
+/* KOMPONEN PERLU PERHATIAN */
 $d_komponen_perhatian = mysqli_fetch_assoc(
     mysqli_query(
         $conn,
@@ -99,6 +132,8 @@ $d_komponen_perhatian = mysqli_fetch_assoc(
     )
 )['total'];
 
+
+/* MAINTENANCE BULAN INI */
 $bulan_ini = date('Y-m');
 
 $d_maint_bulan_ini = mysqli_fetch_assoc(
@@ -107,18 +142,6 @@ $d_maint_bulan_ini = mysqli_fetch_assoc(
         "SELECT COUNT(*) AS total
          FROM riwayat_maintenance
          WHERE DATE_FORMAT(tanggal,'%Y-%m')='$bulan_ini'"
-    )
-)['total'];
-
-
-/* =========================================================
-   JUMLAH AREA
-========================================================= */
-
-$d_total_area = mysqli_fetch_assoc(
-    mysqli_query(
-        $conn,
-        "SELECT COUNT(*) AS total FROM area_bagian"
     )
 )['total'];
 
@@ -154,6 +177,7 @@ $data_maintenance_list = [];
 if ($q_maintenance && mysqli_num_rows($q_maintenance) > 0) {
 
     while ($row = mysqli_fetch_assoc($q_maintenance)) {
+
         $data_maintenance_list[] = $row;
     }
 }
@@ -189,6 +213,7 @@ $data_komponen_list = [];
 if ($q_komponen && mysqli_num_rows($q_komponen) > 0) {
 
     while ($row = mysqli_fetch_assoc($q_komponen)) {
+
         $data_komponen_list[] = $row;
     }
 }
@@ -196,7 +221,6 @@ if ($q_komponen && mysqli_num_rows($q_komponen) > 0) {
 
 /* =========================================================
    DATA AREA + MESIN
-   AREA -> JENIS MESIN -> MESIN
 ========================================================= */
 
 $q_area_mesin = mysqli_query(
@@ -255,17 +279,24 @@ if ($q_area_mesin) {
 
 ?>
 
+
 <style>
 
 /* =========================================================
-   DASHBOARD MODERN
+   GLOBAL RESPONSIVE DASHBOARD
 ========================================================= */
 
 .dashboard-page {
     padding-bottom: 30px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
-/* HEADER */
+
+/* =========================================================
+   HEADER
+========================================================= */
 
 .dashboard-main-header {
     background: #ffffff;
@@ -280,12 +311,14 @@ if ($q_area_mesin) {
     font-weight: 800;
     color: #123b67;
     margin-bottom: 5px;
+    line-height: 1.25;
 }
 
 .dashboard-main-header .dashboard-subtitle {
     color: #738197;
     font-size: 14px;
     margin: 0;
+    line-height: 1.5;
 }
 
 .dashboard-date-box {
@@ -296,6 +329,7 @@ if ($q_area_mesin) {
     color: #075cb0;
     font-size: 13px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 
@@ -307,6 +341,7 @@ if ($q_area_mesin) {
     position: relative;
     overflow: hidden;
     min-height: 130px;
+    height: 100%;
     border-radius: 18px;
     padding: 20px;
     color: #ffffff;
@@ -360,7 +395,9 @@ if ($q_area_mesin) {
 }
 
 
-/* WARNA */
+/* =========================================================
+   WARNA STAT CARD
+========================================================= */
 
 .stat-blue {
     background: linear-gradient(135deg, #0866c6, #1453c7);
@@ -372,6 +409,10 @@ if ($q_area_mesin) {
 
 .stat-orange {
     background: linear-gradient(135deg, #ed7300, #f89a10);
+}
+
+.stat-purple {
+    background: linear-gradient(135deg, #6f42c1, #8e5bd6);
 }
 
 .stat-green {
@@ -400,6 +441,11 @@ if ($q_area_mesin) {
 .quick-action-subtitle {
     color: #7a8798;
     font-size: 13px;
+    line-height: 1.5;
+}
+
+.quick-action-buttons {
+    width: 100%;
 }
 
 .quick-btn {
@@ -408,6 +454,7 @@ if ($q_area_mesin) {
     font-size: 12px;
     font-weight: 700;
     transition: all .2s ease;
+    white-space: nowrap;
 }
 
 .quick-btn:hover {
@@ -425,6 +472,7 @@ if ($q_area_mesin) {
     border-radius: 18px;
     overflow: hidden;
     box-shadow: 0 5px 20px rgba(20, 50, 90, .05);
+    width: 100%;
 }
 
 .modern-card-header {
@@ -438,11 +486,13 @@ if ($q_area_mesin) {
     font-size: 15px;
     font-weight: 800;
     margin: 0;
+    line-height: 1.4;
 }
 
 .modern-card-subtitle {
     color: #8490a0;
     font-size: 12px;
+    line-height: 1.4;
 }
 
 
@@ -468,6 +518,7 @@ if ($q_area_mesin) {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
     margin-bottom: 12px;
 }
 
@@ -475,11 +526,13 @@ if ($q_area_mesin) {
     font-size: 14px;
     font-weight: 800;
     color: #163d66;
+    word-break: break-word;
 }
 
 .area-icon {
     width: 35px;
     height: 35px;
+    min-width: 35px;
     border-radius: 10px;
     background: #e5f1ff;
     color: #0866c6;
@@ -495,6 +548,7 @@ if ($q_area_mesin) {
     font-weight: 800;
     padding: 5px 9px;
     border-radius: 20px;
+    white-space: nowrap;
 }
 
 .machine-item {
@@ -508,6 +562,7 @@ if ($q_area_mesin) {
     margin-bottom: 8px;
     text-decoration: none;
     transition: all .2s ease;
+    min-width: 0;
 }
 
 .machine-item:last-child {
@@ -532,20 +587,28 @@ if ($q_area_mesin) {
     justify-content: center;
 }
 
+.machine-item > div:nth-child(2) {
+    min-width: 0;
+    flex: 1;
+}
+
 .machine-name {
     font-size: 12px;
     font-weight: 800;
     color: #263d55;
+    word-break: break-word;
 }
 
 .machine-sn {
     font-size: 10px;
     color: #8995a4;
+    word-break: break-word;
 }
 
 .machine-arrow {
     margin-left: auto;
     color: #a4afbd;
+    min-width: 12px;
 }
 
 .empty-machine {
@@ -562,6 +625,10 @@ if ($q_area_mesin) {
    TABLE
 ========================================================= */
 
+.dashboard-table {
+    min-width: 650px;
+}
+
 .dashboard-table thead th {
     background: #f7f9fc;
     color: #68778b;
@@ -570,16 +637,24 @@ if ($q_area_mesin) {
     font-weight: 800;
     border-bottom: 1px solid #e7edf4;
     padding: 12px 15px;
+    white-space: nowrap;
 }
 
 .dashboard-table tbody td {
     padding: 12px 15px;
     font-size: 12px;
     border-color: #edf1f5;
+    vertical-align: middle;
 }
 
 .dashboard-table tbody tr:hover {
     background: #f9fbfd;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 
@@ -599,6 +674,7 @@ if ($q_area_mesin) {
 .problem-icon {
     width: 37px;
     height: 37px;
+    min-width: 37px;
     border-radius: 10px;
     display: flex;
     align-items: center;
@@ -607,34 +683,482 @@ if ($q_area_mesin) {
     color: #dc3545;
 }
 
+.problem-item .flex-grow-1 {
+    min-width: 0;
+}
+
+.problem-item .fw-bold {
+    word-break: break-word;
+}
+
 
 /* =========================================================
-   RESPONSIVE
+   MODAL
 ========================================================= */
 
-@media(max-width: 767px) {
+.modal-content {
+    max-width: 100%;
+}
+
+.modal-dialog {
+    width: calc(100% - 30px);
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+/* =========================================================
+   TABLET
+========================================================= */
+
+@media (max-width: 991.98px) {
 
     .dashboard-main-header {
-        padding: 18px;
+        padding: 20px;
     }
 
     .dashboard-main-header .dashboard-title {
-        font-size: 21px;
+        font-size: 24px;
     }
 
     .dashboard-date-box {
         margin-top: 15px;
-        width: 100%;
-        justify-content: center;
-    }
-
-    .quick-action-card {
-        padding: 17px;
     }
 
     .quick-action-buttons {
         margin-top: 15px;
+        justify-content: flex-start !important;
     }
+
+    .area-section {
+        min-height: auto;
+    }
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 767.98px) {
+
+    .dashboard-page {
+        padding-left: 0;
+        padding-right: 0;
+        padding-bottom: 20px;
+    }
+
+
+    /* HEADER */
+
+    .dashboard-main-header {
+        padding: 17px;
+        border-radius: 15px;
+        margin-bottom: 18px !important;
+    }
+
+    .dashboard-main-header .row {
+        --bs-gutter-x: 0;
+    }
+
+    .dashboard-main-header .dashboard-title {
+        font-size: 20px;
+        line-height: 1.3;
+    }
+
+    .dashboard-main-header .dashboard-subtitle {
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .dashboard-main-header .d-flex.align-items-center.gap-3 {
+        align-items: flex-start !important;
+        gap: 10px !important;
+    }
+
+    .dashboard-main-header .d-flex.align-items-center.gap-3 > div:first-child {
+        width: 42px !important;
+        height: 42px !important;
+        min-width: 42px;
+        border-radius: 12px !important;
+        font-size: 19px !important;
+    }
+
+    .dashboard-date-box {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 8px;
+        font-size: 11px;
+        margin-top: 15px;
+        white-space: nowrap;
+    }
+
+
+    /* STAT */
+
+    .dashboard-stat {
+        min-height: 115px;
+        padding: 17px;
+        border-radius: 15px;
+    }
+
+    .dashboard-stat .stat-label {
+        font-size: 9px;
+        letter-spacing: .5px;
+    }
+
+    .dashboard-stat .stat-number {
+        font-size: 28px;
+        margin-top: 5px;
+    }
+
+    .dashboard-stat .stat-desc {
+        font-size: 10px;
+        max-width: 75%;
+    }
+
+    .dashboard-stat .stat-icon-modern {
+        right: 15px;
+        bottom: 15px;
+        font-size: 35px;
+    }
+
+
+    /* QUICK ACTION */
+
+    .quick-action-card {
+        padding: 17px;
+        border-radius: 15px;
+    }
+
+    .quick-action-title {
+        font-size: 17px;
+    }
+
+    .quick-action-subtitle {
+        font-size: 12px;
+    }
+
+    .quick-action-buttons {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px !important;
+        margin-top: 15px;
+    }
+
+    .quick-btn {
+        width: 100%;
+        padding: 9px 6px;
+        font-size: 11px;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+
+    /* CARD */
+
+    .modern-card {
+        border-radius: 15px;
+    }
+
+    .modern-card-header {
+        padding: 15px;
+    }
+
+    .modern-card-title {
+        font-size: 14px;
+    }
+
+    .modern-card-subtitle {
+        font-size: 11px;
+    }
+
+
+    /* AREA */
+
+    .area-section {
+        padding: 13px;
+        border-radius: 13px;
+    }
+
+    .area-name {
+        font-size: 13px;
+    }
+
+    .area-icon {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+    }
+
+    .area-count {
+        font-size: 9px;
+        padding: 4px 7px;
+    }
+
+    .machine-item {
+        padding: 9px;
+    }
+
+    .machine-icon {
+        width: 31px;
+        height: 31px;
+        min-width: 31px;
+    }
+
+    .machine-name {
+        font-size: 11px;
+    }
+
+    .machine-sn {
+        font-size: 9px;
+    }
+
+
+    /* TABLE */
+
+    .dashboard-table {
+        min-width: 620px;
+    }
+
+    .dashboard-table thead th {
+        padding: 10px 12px;
+        font-size: 9px;
+    }
+
+    .dashboard-table tbody td {
+        padding: 10px 12px;
+        font-size: 11px;
+    }
+
+
+    /* PROBLEM */
+
+    .problem-item {
+        padding: 12px 15px;
+    }
+
+    .problem-icon {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+    }
+
+    .problem-item .badge {
+        font-size: 8px !important;
+        white-space: nowrap;
+    }
+
+
+    /* MODAL */
+
+    .modal-dialog {
+        width: calc(100% - 24px);
+        margin: 12px auto;
+    }
+
+    .modal-content {
+        border-radius: 16px !important;
+    }
+
+}
+
+
+/* =========================================================
+   HP KECIL
+========================================================= */
+
+@media (max-width: 575.98px) {
+
+    .dashboard-main-header {
+        padding: 15px;
+    }
+
+    .dashboard-main-header .dashboard-title {
+        font-size: 18px;
+    }
+
+    .dashboard-main-header .dashboard-subtitle {
+        font-size: 11px;
+    }
+
+    .dashboard-date-box {
+        font-size: 10px;
+        gap: 6px !important;
+    }
+
+    .dashboard-date-box span:nth-of-type(2) {
+        display: none;
+    }
+
+
+    /* STAT CARD 2 KOLOM */
+
+    .row.g-3.mb-4 > .col-xl,
+    .row.g-3.mb-4 > .col-lg-4,
+    .row.g-3.mb-4 > .col-md-6 {
+        width: 50%;
+    }
+
+    .dashboard-stat {
+        min-height: 105px;
+        padding: 14px;
+    }
+
+    .dashboard-stat .stat-number {
+        font-size: 25px;
+    }
+
+    .dashboard-stat .stat-desc {
+        font-size: 9px;
+    }
+
+    .dashboard-stat .stat-icon-modern {
+        font-size: 29px;
+        right: 12px;
+        bottom: 12px;
+    }
+
+
+    /* QUICK ACTION */
+
+    .quick-action-buttons {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .quick-btn {
+        font-size: 10px;
+        padding: 8px 4px;
+    }
+
+    .quick-btn i {
+        margin-right: 3px !important;
+    }
+
+
+    /* CARD HEADER */
+
+    .modern-card-header {
+        padding: 13px;
+    }
+
+    .modern-card-header .btn {
+        font-size: 10px;
+        padding: 6px 8px;
+    }
+
+
+    /* AREA */
+
+    .area-section {
+        padding: 12px;
+    }
+
+    .area-header {
+        align-items: flex-start;
+    }
+
+
+    /* MAINTENANCE */
+
+    .dashboard-table {
+        min-width: 600px;
+    }
+
+
+    /* MODAL */
+
+    .modal-dialog {
+        width: calc(100% - 20px);
+    }
+
+}
+
+
+/* =========================================================
+   HP SANGAT KECIL
+========================================================= */
+
+@media (max-width: 380px) {
+
+    .dashboard-main-header .dashboard-title {
+        font-size: 16px;
+    }
+
+    .dashboard-main-header .dashboard-subtitle {
+        font-size: 10px;
+    }
+
+    .dashboard-date-box {
+        font-size: 9px;
+    }
+
+    .dashboard-stat {
+        min-height: 100px;
+        padding: 12px;
+    }
+
+    .dashboard-stat .stat-label {
+        font-size: 8px;
+    }
+
+    .dashboard-stat .stat-number {
+        font-size: 22px;
+    }
+
+    .dashboard-stat .stat-desc {
+        font-size: 8px;
+    }
+
+    .dashboard-stat .stat-icon-modern {
+        font-size: 25px;
+    }
+
+    .quick-action-card {
+        padding: 14px;
+    }
+
+    .quick-action-title {
+        font-size: 15px;
+    }
+
+    .quick-action-subtitle {
+        font-size: 10px;
+    }
+
+    .quick-btn {
+        font-size: 9px;
+        min-height: 38px;
+    }
+
+    .modern-card-title {
+        font-size: 13px;
+    }
+
+    .modern-card-subtitle {
+        font-size: 10px;
+    }
+
+}
+
+
+/* =========================================================
+   MENCEGAH OVERFLOW
+========================================================= */
+
+img,
+svg,
+video,
+iframe {
+    max-width: 100%;
+}
+
+button,
+a {
+    max-width: 100%;
 }
 
 </style>
@@ -666,12 +1190,13 @@ if ($q_area_mesin) {
                         align-items:center;
                         justify-content:center;
                         font-size:23px;
+                        flex-shrink:0;
                         "
                     >
                         <i class="bi bi-speedometer2"></i>
                     </div>
 
-                    <div>
+                    <div style="min-width:0;">
 
                         <h2 class="dashboard-title">
                             Inventory & Maintenance System
@@ -713,7 +1238,9 @@ if ($q_area_mesin) {
                         --:--:--
                     </span>
 
-                    <span>WIB</span>
+                    <span>
+                        WIB
+                    </span>
 
                 </div>
 
@@ -731,14 +1258,41 @@ if ($q_area_mesin) {
     <div class="row g-3 mb-4">
 
 
-        <!-- AREA -->
+        <!-- LOKASI -->
 
-        <div class="col-xl-3 col-md-6">
+        <div class="col-xl col-lg-4 col-md-6">
 
             <div class="dashboard-stat stat-blue">
 
                 <div class="stat-label">
-                    TOTAL AREA
+                    LOKASI
+                </div>
+
+                <div class="stat-number">
+                    <?= $d_total_lokasi ?>
+                </div>
+
+                <div class="stat-desc">
+                    Lokasi Terdaftar
+                </div>
+
+                <div class="stat-icon-modern">
+                    <i class="bi bi-geo-alt-fill"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- AREA -->
+
+        <div class="col-xl col-lg-4 col-md-6">
+
+            <div class="dashboard-stat stat-cyan">
+
+                <div class="stat-label">
+                    AREA / BAGIAN
                 </div>
 
                 <div class="stat-number">
@@ -746,11 +1300,11 @@ if ($q_area_mesin) {
                 </div>
 
                 <div class="stat-desc">
-                    Area Terdaftar
+                    Area / Bagian Terdaftar
                 </div>
 
                 <div class="stat-icon-modern">
-                    <i class="bi bi-geo-alt"></i>
+                    <i class="bi bi-diagram-3-fill"></i>
                 </div>
 
             </div>
@@ -760,9 +1314,9 @@ if ($q_area_mesin) {
 
         <!-- MESIN -->
 
-        <div class="col-xl-3 col-md-6">
+        <div class="col-xl col-lg-4 col-md-6">
 
-            <div class="dashboard-stat stat-cyan">
+            <div class="dashboard-stat stat-orange">
 
                 <div class="stat-label">
                     TOTAL MESIN
@@ -787,9 +1341,9 @@ if ($q_area_mesin) {
 
         <!-- KOMPONEN -->
 
-        <div class="col-xl-3 col-md-6">
+        <div class="col-xl col-lg-4 col-md-6">
 
-            <div class="dashboard-stat stat-orange">
+            <div class="dashboard-stat stat-purple">
 
                 <div class="stat-label">
                     TOTAL KOMPONEN
@@ -800,11 +1354,11 @@ if ($q_area_mesin) {
                 </div>
 
                 <div class="stat-desc">
-                    Komponen Aktif
+                    Komponen Terdaftar
                 </div>
 
                 <div class="stat-icon-modern">
-                    <i class="bi bi-cpu"></i>
+                    <i class="bi bi-cpu-fill"></i>
                 </div>
 
             </div>
@@ -814,7 +1368,7 @@ if ($q_area_mesin) {
 
         <!-- MAINTENANCE -->
 
-        <div class="col-xl-3 col-md-6">
+        <div class="col-xl col-lg-4 col-md-6">
 
             <div class="dashboard-stat stat-green">
 
@@ -934,6 +1488,7 @@ if ($q_area_mesin) {
 
     </div>
 
+
     <!-- =====================================================
          DAFTAR AREA & MESIN
     ====================================================== -->
@@ -947,7 +1502,7 @@ if ($q_area_mesin) {
 
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-                <div>
+                <div style="min-width:0;">
 
                     <h5 class="modern-card-title">
 
@@ -968,7 +1523,7 @@ if ($q_area_mesin) {
 
                 <a
                     href="../master/area.php"
-                    class="btn btn-sm btn-outline-primary"
+                    class="btn btn-sm btn-outline-primary flex-shrink-0"
                 >
                     <i class="bi bi-pencil-square me-1"></i>
                     Kelola Area
@@ -996,7 +1551,8 @@ if ($q_area_mesin) {
 
                                 <div class="area-header">
 
-                                    <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center gap-2"
+                                         style="min-width:0;">
 
                                         <div class="area-icon">
 
@@ -1004,11 +1560,13 @@ if ($q_area_mesin) {
 
                                         </div>
 
-                                        <div>
+                                        <div style="min-width:0;">
 
                                             <div class="area-name">
 
-                                                <?= htmlspecialchars($area['lokasi']) ?>
+                                                <?= htmlspecialchars(
+                                                    $area['lokasi']
+                                                ) ?>
 
                                             </div>
 
@@ -1019,7 +1577,6 @@ if ($q_area_mesin) {
                                                 "
                                             >
                                                 Area / Bagian
-
                                             </div>
 
                                         </div>
@@ -1058,7 +1615,9 @@ if ($q_area_mesin) {
 
                                                 <div class="machine-name">
 
-                                                    <?= htmlspecialchars($mesin['nama']) ?>
+                                                    <?= htmlspecialchars(
+                                                        $mesin['nama']
+                                                    ) ?>
 
                                                 </div>
 
@@ -1164,9 +1723,7 @@ if ($q_area_mesin) {
     <div class="row g-4">
 
 
-        <!-- =================================================
-             MAINTENANCE
-        ================================================== -->
+        <!-- MAINTENANCE -->
 
         <div class="col-xl-8">
 
@@ -1174,9 +1731,9 @@ if ($q_area_mesin) {
 
                 <div class="modern-card-header">
 
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center gap-2">
 
-                        <div>
+                        <div style="min-width:0;">
 
                             <h5 class="modern-card-title">
 
@@ -1197,7 +1754,7 @@ if ($q_area_mesin) {
 
                         <a
                             href="../maintenance/index.php"
-                            class="btn btn-sm btn-outline-primary"
+                            class="btn btn-sm btn-outline-primary flex-shrink-0"
                         >
                             Lihat Semua
                         </a>
@@ -1296,6 +1853,7 @@ if ($q_area_mesin) {
                                                 style="
                                                 width:34px;
                                                 height:34px;
+                                                flex-shrink:0;
                                                 "
                                             >
 
@@ -1304,7 +1862,7 @@ if ($q_area_mesin) {
                                             </div>
 
 
-                                            <div>
+                                            <div style="min-width:0;">
 
                                                 <strong>
 
@@ -1349,7 +1907,9 @@ if ($q_area_mesin) {
                                             data-bs-target="#modalStatusMaint<?= $m['id'] ?>"
                                         >
 
-                                            <?= htmlspecialchars($m['status']) ?>
+                                            <?= htmlspecialchars(
+                                                $m['status']
+                                            ) ?>
 
                                             <i
                                                 class="bi bi-pencil-fill ms-1"
@@ -1400,9 +1960,7 @@ if ($q_area_mesin) {
         </div>
 
 
-        <!-- =================================================
-             KOMPONEN BERMASALAH
-        ================================================== -->
+        <!-- KOMPONEN BERMASALAH -->
 
         <div class="col-xl-4">
 
@@ -1452,8 +2010,10 @@ if ($q_area_mesin) {
 
                                     </div>
 
-                                    <div class="text-muted"
-                                         style="font-size:10px">
+                                    <div
+                                        class="text-muted"
+                                        style="font-size:10px"
+                                    >
 
                                         <?= htmlspecialchars(
                                             $k['nama_mesin'] ?? '-'
@@ -1472,6 +2032,7 @@ if ($q_area_mesin) {
                                     $k['kondisi'] ==
                                     "Perlu Pemeriksaan"
                                 ) {
+
                                     $badge_problem =
                                         "bg-warning text-dark";
                                 }
@@ -1484,7 +2045,7 @@ if ($q_area_mesin) {
                                     class="btn badge <?= $badge_problem ?> border-0 rounded-pill px-2 py-2"
                                     data-bs-toggle="modal"
                                     data-bs-target="#modalKondisiKomp<?= $k['id'] ?>"
-                                    style="font-size:9px"
+                                    style="font-size:9px; flex-shrink:0;"
                                 >
 
                                     <?= htmlspecialchars(
@@ -1557,6 +2118,7 @@ if ($q_area_mesin) {
     class="modal fade"
     id="modalStatusMaint<?= $m['id'] ?>"
     tabindex="-1"
+    aria-hidden="true"
 >
 
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -1590,9 +2152,7 @@ if ($q_area_mesin) {
 
 
                     <label class="form-label small text-muted">
-
                         Pilih Status Baru:
-
                     </label>
 
 
@@ -1640,8 +2200,11 @@ if ($q_area_mesin) {
                         name="update_status_maintenance"
                         class="btn btn-primary btn-sm rounded-3 w-100"
                     >
+
                         <i class="bi bi-check-lg me-1"></i>
+
                         Simpan Status
+
                     </button>
 
                 </div>
@@ -1667,6 +2230,7 @@ if ($q_area_mesin) {
     class="modal fade"
     id="modalKondisiKomp<?= $k['id'] ?>"
     tabindex="-1"
+    aria-hidden="true"
 >
 
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -1678,9 +2242,7 @@ if ($q_area_mesin) {
                 <div class="modal-header border-0 pb-0">
 
                     <h6 class="modal-title fw-bold">
-
                         Update Kondisi Komponen
-
                     </h6>
 
                     <button
@@ -1702,9 +2264,7 @@ if ($q_area_mesin) {
 
 
                     <label class="form-label small text-muted">
-
                         Ubah Kondisi Menjadi:
-
                     </label>
 
 

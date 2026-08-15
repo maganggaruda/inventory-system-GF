@@ -1,161 +1,157 @@
 <?php
+
+ob_start();
+
 include "../koneksi.php";
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
 /* =========================================================
-   AMBIL DATA KOMPONEN LENGKAP
+   HELPER
 ========================================================= */
 
-$stmt_get = mysqli_prepare($conn, "
-    SELECT 
-        k.*,
-        sm.id_mesin,
-        m.id_jenis_mesin,
-        jm.id_area,
-        ab.lokasi AS lokasi_area
-    FROM komponen k
-    LEFT JOIN sub_mesin sm 
-        ON k.id_sub_mesin = sm.id
-    LEFT JOIN mesin m 
-        ON sm.id_mesin = m.id
-    LEFT JOIN jenis_mesin jm 
-        ON m.id_jenis_mesin = jm.id
-    LEFT JOIN area_bagian ab 
-        ON jm.id_area = ab.id
-    WHERE k.id = ?
-");
+function e($value)
+{
+    return htmlspecialchars(
+        (string)($value ?? ''),
+        ENT_QUOTES,
+        'UTF-8'
+    );
+}
 
-mysqli_stmt_bind_param($stmt_get, "i", $id);
-mysqli_stmt_execute($stmt_get);
 
-$result = mysqli_stmt_get_result($stmt_get);
-$d = mysqli_fetch_assoc($result);
+/* =========================================================
+   ID
+========================================================= */
 
-mysqli_stmt_close($stmt_get);
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+if ($id <= 0) {
+    header("Location: index.php");
+    exit;
+}
+
+
+/* =========================================================
+   VARIABEL
+========================================================= */
+
+$error = "";
+
+
+/* =========================================================
+   AMBIL DATA KOMPONEN
+========================================================= */
+
+function getKomponen($conn, $id)
+{
+    $sql = "
+        SELECT
+            k.*,
+
+            sm.id AS sub_mesin_id,
+            sm.nama_sub_mesin,
+            sm.id_mesin AS sm_id_mesin,
+
+            m.id AS mesin_id,
+            m.nama_mesin,
+            m.serial_number AS serial_number_mesin,
+            m.id_jenis_mesin,
+            m.id_area,
+
+            jm.nama_jenis_mesin,
+
+            ab.id AS area_id,
+            ab.nama_area,
+            ab.lokasi AS lokasi_area
+
+        FROM komponen k
+
+        LEFT JOIN sub_mesin sm
+            ON k.id_sub_mesin = sm.id
+
+        LEFT JOIN mesin m
+            ON sm.id_mesin = m.id
+
+        LEFT JOIN jenis_mesin jm
+            ON m.id_jenis_mesin = jm.id
+
+        LEFT JOIN area_bagian ab
+            ON m.id_area = ab.id
+
+        WHERE k.id = ?
+
+        LIMIT 1
+    ";
+
+    $stmt = mysqli_prepare($conn, $sql);
+
+    if (!$stmt) {
+        return false;
+    }
+
+    mysqli_stmt_bind_param(
+        $stmt,
+        "i",
+        $id
+    );
+
+    if (!mysqli_stmt_execute($stmt)) {
+        mysqli_stmt_close($stmt);
+        return false;
+    }
+
+    $result = mysqli_stmt_get_result($stmt);
+
+    $data = mysqli_fetch_assoc($result);
+
+    mysqli_stmt_close($stmt);
+
+    return $data;
+}
+
+
+/* =========================================================
+   DATA AWAL
+========================================================= */
+
+$d = getKomponen($conn, $id);
 
 if (!$d) {
     header("Location: index.php");
     exit;
 }
 
-$error = "";
-
 
 /* =========================================================
    PROSES UPDATE
 ========================================================= */
 
-if (isset($_POST['update'])) {
-
-    $serial_number = trim($_POST['serial_number'] ?? '');
-    $nama_bagian   = trim($_POST['nama_bagian'] ?? '');
-
-    $id_area = !empty($_POST['id_area'])
-        ? intval($_POST['id_area'])
-        : null;
-
-    $id_sub_mesin = !empty($_POST['id_sub_mesin'])
-        ? intval($_POST['id_sub_mesin'])
-        : null;
-
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /* =====================================================
-       AMBIL LOKASI BERDASARKAN AREA
+       DATA FORM
     ===================================================== */
 
-    $lokasi_str = "";
+    $serial_number   = trim($_POST['serial_number'] ?? '');
+    $nama_bagian     = trim($_POST['nama_bagian'] ?? '');
+    $jenis_komponen  = trim($_POST['jenis_komponen'] ?? '');
+    $spesifikasi     = trim($_POST['spesifikasi'] ?? '');
 
-    if ($id_area) {
+    $id_sub_mesin    = (int)($_POST['id_sub_mesin'] ?? 0);
 
-        $stmt_l = mysqli_prepare(
-            $conn,
-            "SELECT lokasi 
-             FROM area_bagian 
-             WHERE id = ?"
-        );
-
-        mysqli_stmt_bind_param(
-            $stmt_l,
-            "i",
-            $id_area
-        );
-
-        mysqli_stmt_execute($stmt_l);
-
-        $res_l = mysqli_stmt_get_result($stmt_l);
-
-        if ($row_l = mysqli_fetch_assoc($res_l)) {
-            $lokasi_str = $row_l['lokasi'];
-        }
-
-        mysqli_stmt_close($stmt_l);
-    }
-
-
-    /* =====================================================
-       AMBIL MESIN & SUB MESIN
-    ===================================================== */
-
-    $mesin_str = "";
-    $sub_mesin_str = "";
-
-    if ($id_sub_mesin) {
-
-        $stmt_s = mysqli_prepare(
-            $conn,
-            "SELECT 
-                sm.nama_sub_mesin,
-                m.nama_mesin
-             FROM sub_mesin sm
-             LEFT JOIN mesin m 
-                ON sm.id_mesin = m.id
-             WHERE sm.id = ?"
-        );
-
-        mysqli_stmt_bind_param(
-            $stmt_s,
-            "i",
-            $id_sub_mesin
-        );
-
-        mysqli_stmt_execute($stmt_s);
-
-        $res_s = mysqli_stmt_get_result($stmt_s);
-
-        if ($row_s = mysqli_fetch_assoc($res_s)) {
-
-            $sub_mesin_str = $row_s['nama_sub_mesin'];
-            $mesin_str     = $row_s['nama_mesin'];
-        }
-
-        mysqli_stmt_close($stmt_s);
-    }
-
-
-    /* =====================================================
-       DATA SPESIFIKASI
-    ===================================================== */
-
-    $brand            = trim($_POST['brand'] ?? '');
-    $tipe             = trim($_POST['tipe'] ?? '');
-    $part_number      = trim($_POST['part_number'] ?? '');
-    $daya             = trim($_POST['daya'] ?? '');
-    $io_address       = trim($_POST['io_address'] ?? '');
-    $input_voltage    = trim($_POST['input_voltage'] ?? '');
-    $frekuensi_input  = trim($_POST['frekuensi_input'] ?? '');
-    $arus_input       = trim($_POST['arus_input'] ?? '');
-    $output           = trim($_POST['output'] ?? '');
+    $brand           = trim($_POST['brand'] ?? '');
+    $tipe            = trim($_POST['tipe'] ?? '');
+    $part_number     = trim($_POST['part_number'] ?? '');
+    $daya            = trim($_POST['daya'] ?? '');
+    $io_address      = trim($_POST['io_address'] ?? '');
+    $ip_address      = trim($_POST['ip_address'] ?? '');
+    $input_voltage   = trim($_POST['input_voltage'] ?? '');
+    $frekuensi_input = trim($_POST['frekuensi_input'] ?? '');
+    $arus_input      = trim($_POST['arus_input'] ?? '');
+    $output          = trim($_POST['output'] ?? '');
     $frekuensi_output = trim($_POST['frekuensi_output'] ?? '');
-    $ip_rating        = trim($_POST['ip_rating'] ?? '');
-    $kondisi          = trim($_POST['kondisi'] ?? '');
-    $keterangan       = trim($_POST['keterangan'] ?? '');
-
-
-    /* =====================================================
-       KATEGORI DIHAPUS
-       DATABASE LAMA TETAP AMAN
-    ===================================================== */
+    $ip_rating       = trim($_POST['ip_rating'] ?? '');
+    $kondisi         = trim($_POST['kondisi'] ?? '');
+    $keterangan      = trim($_POST['keterangan'] ?? '');
 
     $kategori = "";
 
@@ -164,31 +160,284 @@ if (isset($_POST['update'])) {
        VALIDASI
     ===================================================== */
 
-    if (empty($nama_bagian)) {
-        $error = "Nama Komponen wajib diisi!";
+    if ($nama_bagian === '') {
+
+        $error = "Nama Komponen wajib diisi.";
+
+    } elseif ($id_sub_mesin <= 0) {
+
+        $error = "Sub Mesin wajib dipilih.";
+
+    } elseif (
+        !in_array(
+            $kondisi,
+            [
+                'Baik',
+                'Perlu Pemeriksaan',
+                'Dalam Perbaikan'
+            ],
+            true
+        )
+    ) {
+
+        $error = "Kondisi komponen tidak valid.";
     }
 
 
     /* =====================================================
-       UPDATE DATA
+       RELASI SUB MESIN
     ===================================================== */
 
-    if (empty($error)) {
+    $mesin_str = "";
+    $sub_mesin_str = "";
+    $lokasi_str = "";
 
-        $sql_update = "
-            UPDATE komponen SET
+    $id_mesin = 0;
+    $id_jenis_mesin = 0;
+    $id_area = 0;
 
+    if ($error === '') {
+
+        $sql_relasi = "
+            SELECT
+                sm.id AS id_sub_mesin,
+                sm.nama_sub_mesin,
+
+                m.id AS id_mesin,
+                m.nama_mesin,
+                m.id_jenis_mesin,
+                m.id_area,
+
+                ab.lokasi
+
+            FROM sub_mesin sm
+
+            INNER JOIN mesin m
+                ON sm.id_mesin = m.id
+
+            LEFT JOIN area_bagian ab
+                ON m.id_area = ab.id
+
+            WHERE sm.id = ?
+
+            LIMIT 1
+        ";
+
+        $stmt_relasi = mysqli_prepare(
+            $conn,
+            $sql_relasi
+        );
+
+        if (!$stmt_relasi) {
+
+            $error =
+                "Gagal menyiapkan relasi: " .
+                mysqli_error($conn);
+
+        } else {
+
+            mysqli_stmt_bind_param(
+                $stmt_relasi,
+                "i",
+                $id_sub_mesin
+            );
+
+            if (!mysqli_stmt_execute($stmt_relasi)) {
+
+                $error =
+                    "Gagal mengambil relasi: " .
+                    mysqli_stmt_error($stmt_relasi);
+
+            } else {
+
+                $result_relasi =
+                    mysqli_stmt_get_result($stmt_relasi);
+
+                $relasi =
+                    mysqli_fetch_assoc($result_relasi);
+
+                if (!$relasi) {
+
+                    $error =
+                        "Sub Mesin tidak ditemukan.";
+
+                } else {
+
+                    $id_mesin =
+                        (int)($relasi['id_mesin'] ?? 0);
+
+                    $id_jenis_mesin =
+                        (int)($relasi['id_jenis_mesin'] ?? 0);
+
+                    $id_area =
+                        (int)($relasi['id_area'] ?? 0);
+
+                    $mesin_str =
+                        $relasi['nama_mesin'] ?? '';
+
+                    $sub_mesin_str =
+                        $relasi['nama_sub_mesin'] ?? '';
+
+                    $lokasi_str =
+                        $relasi['lokasi'] ?? '';
+
+
+                    if ($id_mesin <= 0) {
+
+                        $error =
+                            "Sub Mesin belum memiliki Mesin Induk.";
+
+                    } elseif ($id_jenis_mesin <= 0) {
+
+                        $error =
+                            "Mesin belum memiliki Jenis Mesin.";
+
+                    } elseif ($id_area <= 0) {
+
+                        $error =
+                            "Mesin belum memiliki Area.";
+                    }
+                }
+            }
+
+            mysqli_stmt_close($stmt_relasi);
+        }
+    }
+
+
+    /* =====================================================
+       GAMBAR
+    ===================================================== */
+
+    $nama_gambar_lama =
+        $d['gambar'] ?? '';
+
+    $nama_gambar_baru =
+        $nama_gambar_lama;
+
+    $gambar_baru_terupload = false;
+
+
+    if (
+        $error === '' &&
+        isset($_FILES['gambar']) &&
+        $_FILES['gambar']['error'] !== UPLOAD_ERR_NO_FILE
+    ) {
+
+        $file = $_FILES['gambar'];
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+
+            $error = "Gagal upload gambar.";
+
+        } elseif ($file['size'] > 2 * 1024 * 1024) {
+
+            $error = "Ukuran gambar maksimal 2 MB.";
+
+        } else {
+
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+
+            $mime = finfo_file(
+                $finfo,
+                $file['tmp_name']
+            );
+
+            finfo_close($finfo);
+
+            $allowed = [
+                'image/jpeg',
+                'image/png',
+                'image/webp'
+            ];
+
+            if (!in_array($mime, $allowed, true)) {
+
+                $error =
+                    "Format gambar harus JPG, PNG, atau WEBP.";
+
+            } else {
+
+                $upload_dir =
+                    "../uploads/komponen/";
+
+                if (!is_dir($upload_dir)) {
+
+                    mkdir(
+                        $upload_dir,
+                        0777,
+                        true
+                    );
+                }
+
+                if ($mime === 'image/jpeg') {
+                    $extension = 'jpg';
+                } elseif ($mime === 'image/png') {
+                    $extension = 'png';
+                } else {
+                    $extension = 'webp';
+                }
+
+                $nama_file =
+                    "komponen_" .
+                    $id .
+                    "_" .
+                    time() .
+                    "_" .
+                    bin2hex(random_bytes(5)) .
+                    "." .
+                    $extension;
+
+                $target =
+                    $upload_dir .
+                    $nama_file;
+
+                if (
+                    move_uploaded_file(
+                        $file['tmp_name'],
+                        $target
+                    )
+                ) {
+
+                    $nama_gambar_baru =
+                        $nama_file;
+
+                    $gambar_baru_terupload =
+                        true;
+
+                } else {
+
+                    $error =
+                        "Gagal menyimpan gambar.";
+                }
+            }
+        }
+    }
+
+
+    /* =====================================================
+       UPDATE DATABASE
+    ===================================================== */
+
+    if ($error === '') {
+
+        $sql = "
+            UPDATE komponen
+            SET
                 serial_number = ?,
                 id_sub_mesin = ?,
                 mesin = ?,
                 sub_mesin = ?,
                 nama_bagian = ?,
+                jenis_komponen = ?,
+                spesifikasi = ?,
                 kategori = ?,
                 brand = ?,
                 tipe = ?,
                 part_number = ?,
                 daya = ?,
                 io_address = ?,
+                ip_address = ?,
                 input_voltage = ?,
                 frekuensi_input = ?,
                 arus_input = ?,
@@ -197,112 +446,510 @@ if (isset($_POST['update'])) {
                 ip_rating = ?,
                 lokasi = ?,
                 kondisi = ?,
-                keterangan = ?
-
+                keterangan = ?,
+                gambar = ?
             WHERE id = ?
         ";
 
-        $stmt_up = mysqli_prepare(
+        $stmt = mysqli_prepare(
             $conn,
-            $sql_update
+            $sql
         );
 
-        mysqli_stmt_bind_param(
-            $stmt_up,
-            "sissssssssssssssssssi",
+        if (!$stmt) {
 
-            $serial_number,
-            $id_sub_mesin,
-            $mesin_str,
-            $sub_mesin_str,
-            $nama_bagian,
-
-            $kategori,
-
-            $brand,
-            $tipe,
-            $part_number,
-            $daya,
-            $io_address,
-            $input_voltage,
-            $frekuensi_input,
-            $arus_input,
-            $output,
-            $frekuensi_output,
-            $ip_rating,
-            $lokasi_str,
-            $kondisi,
-            $keterangan,
-
-            $id
-        );
-
-
-        if (mysqli_stmt_execute($stmt_up)) {
-
-            mysqli_stmt_close($stmt_up);
-
-            header("Location: index.php");
-            exit;
+            $error =
+                "SQL UPDATE ERROR: " .
+                mysqli_error($conn);
 
         } else {
 
-            $error = "Gagal memperbarui data: " . mysqli_error($conn);
+            /*
+             * 25 PARAMETER
+             */
 
-            mysqli_stmt_close($stmt_up);
+            mysqli_stmt_bind_param(
+                $stmt,
+                "sissssssssssssssssssssssi",
+
+                $serial_number,
+                $id_sub_mesin,
+                $mesin_str,
+                $sub_mesin_str,
+                $nama_bagian,
+                $jenis_komponen,
+                $spesifikasi,
+                $kategori,
+                $brand,
+                $tipe,
+                $part_number,
+                $daya,
+                $io_address,
+                $ip_address,
+                $input_voltage,
+                $frekuensi_input,
+                $arus_input,
+                $output,
+                $frekuensi_output,
+                $ip_rating,
+                $lokasi_str,
+                $kondisi,
+                $keterangan,
+                $nama_gambar_baru,
+                $id
+            );
+
+
+            /* =================================================
+               EKSEKUSI
+            ================================================= */
+
+            if (mysqli_stmt_execute($stmt)) {
+
+                mysqli_stmt_close($stmt);
+
+
+                /* =============================================
+                   HAPUS GAMBAR LAMA
+                ============================================= */
+
+                if (
+                    $gambar_baru_terupload &&
+                    !empty($nama_gambar_lama) &&
+                    $nama_gambar_lama !== $nama_gambar_baru
+                ) {
+
+                    $file_lama =
+                        "../uploads/komponen/" .
+                        basename($nama_gambar_lama);
+
+                    if (is_file($file_lama)) {
+                        @unlink($file_lama);
+                    }
+                }
+
+
+                /* =============================================
+                   REDIRECT MUTLAK
+                ============================================= */
+
+                ob_clean();
+
+                header(
+                    "Location: detail.php?id=" .
+                    $id .
+                    "&updated=1"
+                );
+
+                exit;
+
+
+            } else {
+
+                $error =
+                    "UPDATE GAGAL: " .
+                    mysqli_stmt_error($stmt);
+
+
+                /* =============================================
+                   HAPUS GAMBAR BARU
+                ============================================= */
+
+                if (
+                    $gambar_baru_terupload &&
+                    !empty($nama_gambar_baru)
+                ) {
+
+                    $file_baru =
+                        "../uploads/komponen/" .
+                        basename($nama_gambar_baru);
+
+                    if (is_file($file_baru)) {
+                        @unlink($file_baru);
+                    }
+                }
+
+                mysqli_stmt_close($stmt);
+            }
         }
+    }
+
+
+    /* =====================================================
+       JIKA ERROR
+       TAMPILKAN DATA POST
+    ===================================================== */
+
+    if ($error !== '') {
+
+        $d['serial_number'] =
+            $serial_number;
+
+        $d['nama_bagian'] =
+            $nama_bagian;
+
+        $d['jenis_komponen'] =
+            $jenis_komponen;
+
+        $d['spesifikasi'] =
+            $spesifikasi;
+
+        $d['brand'] =
+            $brand;
+
+        $d['tipe'] =
+            $tipe;
+
+        $d['part_number'] =
+            $part_number;
+
+        $d['daya'] =
+            $daya;
+
+        $d['io_address'] =
+            $io_address;
+
+        $d['ip_address'] =
+            $ip_address;
+
+        $d['input_voltage'] =
+            $input_voltage;
+
+        $d['frekuensi_input'] =
+            $frekuensi_input;
+
+        $d['arus_input'] =
+            $arus_input;
+
+        $d['output'] =
+            $output;
+
+        $d['frekuensi_output'] =
+            $frekuensi_output;
+
+        $d['ip_rating'] =
+            $ip_rating;
+
+        $d['kondisi'] =
+            $kondisi;
+
+        $d['keterangan'] =
+            $keterangan;
+
+        $d['id_area'] =
+            $id_area;
+
+        $d['id_jenis_mesin'] =
+            $id_jenis_mesin;
+
+        $d['sm_id_mesin'] =
+            $id_mesin;
+
+        $d['id_sub_mesin'] =
+            $id_sub_mesin;
+
+        $d['lokasi_area'] =
+            $lokasi_str;
     }
 }
 
 
 /* =========================================================
-   AMBIL DATA LOKASI
+   DATA LOKASI
 ========================================================= */
 
 $q_lokasi = mysqli_query(
     $conn,
-    "SELECT DISTINCT lokasi
-     FROM area_bagian
-     WHERE lokasi IS NOT NULL
-     AND lokasi != ''
-     ORDER BY lokasi ASC"
+    "
+    SELECT DISTINCT lokasi
+    FROM area_bagian
+    WHERE lokasi IS NOT NULL
+    AND lokasi != ''
+    ORDER BY lokasi ASC
+    "
 );
 
 
+/* =========================================================
+   TEMPLATE
+========================================================= */
+
 include "../template/header.php";
+
 ?>
 
 
-<div class="container-fluid p-0">
+<!-- =========================================================
+     STYLE
+========================================================= -->
+
+<style>
+
+.edit-component-page {
+    width: 100%;
+}
+
+.edit-page-header {
+    background: linear-gradient(
+        135deg,
+        #ffffff 0%,
+        #f7fbff 100%
+    );
+
+    border: 1px solid #e4eaf2;
+    border-radius: 15px;
+
+    padding: 15px 18px;
+
+    box-shadow: 0 4px 15px rgba(15,23,42,.04);
+}
+
+.edit-page-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.edit-back-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+
+    border-radius: 10px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    text-decoration: none;
+
+    background: #f8fafc;
+    border: 1px solid #dfe6ee;
+
+    color: #475569;
+}
+
+.edit-back-btn:hover {
+    background: #005baa;
+    border-color: #005baa;
+    color: white;
+}
+
+.edit-page-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    color: #172033;
+}
+
+.edit-page-subtitle {
+    margin: 3px 0 0;
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.edit-form-card {
+    background: white;
+    border: 1px solid #e4eaf2;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 18px rgba(15,23,42,.05);
+}
+
+.edit-card-header {
+    padding: 13px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e8edf3;
+}
+
+.edit-card-title {
+    margin: 0;
+    color: #172033;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.edit-card-body {
+    padding: 18px;
+}
+
+.form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #005baa;
+    font-size: 12px;
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.form-divider {
+    border: 0;
+    border-top: 1px solid #e8edf3;
+    margin: 20px 0;
+}
+
+.edit-form-card .form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 5px;
+}
+
+.edit-form-card .form-control,
+.edit-form-card .form-select {
+    min-height: 36px;
+    border-color: #dbe3ec;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.edit-form-card textarea.form-control {
+    min-height: 80px;
+}
+
+.image-upload-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.component-image-preview {
+    width: 190px;
+    height: 190px;
+    min-width: 190px;
+    border-radius: 14px;
+    border: 1px solid #dfe6ee;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.component-image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.component-image-empty {
+    text-align: center;
+    color: #94a3b8;
+}
+
+.component-image-empty i {
+    display: block;
+    font-size: 44px;
+    opacity: .3;
+}
+
+.image-upload-info {
+    flex: 1;
+    min-width: 230px;
+}
+
+.image-current-info {
+    margin-top: 10px;
+    padding: 9px 11px;
+    background: #f8fafc;
+    border: 1px solid #e8edf3;
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.edit-action-bar {
+    border-top: 1px solid #e8edf3;
+    margin-top: 20px;
+    padding-top: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.edit-action-left,
+.edit-action-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.edit-action-bar .btn {
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    min-height: 36px;
+}
+
+.edit-alert {
+    border-radius: 9px;
+    font-size: 12px;
+}
+
+@media (max-width: 767.98px) {
+
+    .edit-card-body {
+        padding: 14px;
+    }
+
+    .image-upload-wrapper {
+        display: block;
+    }
+
+    .component-image-preview {
+        width: 100%;
+        height: 220px;
+        min-width: 0;
+        margin-bottom: 13px;
+    }
+
+    .edit-action-bar {
+        display: block;
+    }
+
+    .edit-action-left,
+    .edit-action-right {
+        width: 100%;
+    }
+
+    .edit-action-bar .btn {
+        flex: 1;
+    }
+}
+
+</style>
+
+
+<div class="container-fluid p-0 edit-component-page">
 
 
     <!-- =====================================================
          HEADER
     ====================================================== -->
 
-    <div class="dashboard-header mb-3 py-3 px-4">
+    <div class="edit-page-header mb-3">
 
-        <div class="d-flex align-items-center gap-3">
+        <div class="edit-page-header-inner">
 
             <a
                 href="index.php"
-                class="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center"
-                style="width:38px;height:38px;flex-shrink:0;"
+                class="edit-back-btn"
             >
-
-                <i class="bi bi-arrow-left fs-5"></i>
-
+                <i class="bi bi-arrow-left"></i>
             </a>
-
 
             <div>
 
-                <h3 class="dashboard-title m-0 fs-4 fw-bold">
+                <h3 class="edit-page-title">
                     Edit Komponen
                 </h3>
 
-                <p class="dashboard-subtitle m-0 small text-muted">
-                    Perbarui rincian spesifikasi dan data komponen
+                <p class="edit-page-subtitle">
+                    Perbarui data komponen.
                 </p>
 
             </div>
@@ -312,100 +959,85 @@ include "../template/header.php";
     </div>
 
 
-
     <!-- =====================================================
-         FORM CARD
+         CARD
     ====================================================== -->
 
-    <div class="content-card mb-3">
+    <div class="edit-form-card">
 
+        <div class="edit-card-header">
 
-        <div class="card-header-custom py-2 px-3">
+            <div class="edit-card-title">
 
-            <h6 class="card-title-custom m-0 fw-bold">
+                <i class="bi bi-pencil-square text-primary me-2"></i>
 
-                <i class="bi bi-pencil-square me-2"></i>
                 Form Edit Komponen
 
-            </h6>
+            </div>
 
         </div>
 
 
+        <div class="edit-card-body">
 
-        <div class="card-body-custom p-3">
 
+            <?php if ($error !== ''): ?>
 
-            <!-- ERROR -->
+                <div class="alert alert-danger edit-alert">
 
-            <?php if (!empty($error)) : ?>
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
 
-                <div
-                    class="alert alert-danger border-0 d-flex align-items-center py-2 px-3 mb-3"
-                    role="alert"
-                >
-
-                    <i class="bi bi-exclamation-triangle-fill fs-6 me-2"></i>
-
-                    <div class="small">
-
-                        <?= htmlspecialchars($error); ?>
-
-                    </div>
+                    <?= e($error) ?>
 
                 </div>
 
             <?php endif; ?>
 
 
-
-            <form method="POST">
+            <form
+                method="POST"
+                enctype="multipart/form-data"
+                id="formEditKomponen"
+            >
 
 
                 <!-- =================================================
-                     SECTION 1
+                     INFORMASI
                 ================================================== -->
 
-                <h6 class="fw-bold text-primary mb-3 small">
+                <div class="form-section-title">
 
-                    <i class="bi bi-info-circle me-1"></i>
+                    <i class="bi bi-info-circle-fill"></i>
 
                     INFORMASI UMUM
 
-                </h6>
+                </div>
 
 
-                <div class="row g-3 mb-3">
+                <div class="row g-3">
 
+                    <div class="col-12 col-md-4">
 
-                    <!-- SERIAL NUMBER -->
-
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Serial Number (SN)
-
+                        <label class="form-label">
+                            Serial Number
                         </label>
 
                         <input
                             type="text"
                             name="serial_number"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['serial_number'] ?? '') ?>"
+                            class="form-control"
+                            value="<?= e($d['serial_number'] ?? '') ?>"
                         >
 
                     </div>
 
 
+                    <div class="col-12 col-md-4">
 
-                    <!-- NAMA KOMPONEN -->
-
-                    <div class="col-md-5">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
+                        <label class="form-label">
 
                             Nama Komponen
+
                             <span class="text-danger">*</span>
 
                         </label>
@@ -413,69 +1045,110 @@ include "../template/header.php";
                         <input
                             type="text"
                             name="nama_bagian"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['nama_bagian'] ?? '') ?>"
+                            class="form-control"
+                            value="<?= e($d['nama_bagian'] ?? '') ?>"
                             required
                         >
 
                     </div>
 
 
+                    <div class="col-12 col-md-4">
+
+                        <label class="form-label">
+                            Jenis Komponen
+                        </label>
+
+                        <input
+                            type="text"
+                            name="jenis_komponen"
+                            class="form-control"
+                            value="<?= e($d['jenis_komponen'] ?? '') ?>"
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <hr class="form-divider">
+
+
+                <!-- =================================================
+                     RELASI
+                ================================================== -->
+
+                <div class="form-section-title">
+
+                    <i class="bi bi-diagram-3-fill"></i>
+
+                    LOKASI & RELASI MESIN
+
+                </div>
+
+
+                <div class="row g-3">
+
 
                     <!-- LOKASI -->
 
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
 
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
+                        <label class="form-label">
                             Lokasi
-
                         </label>
 
                         <select
                             id="form_lokasi"
-                            class="form-select form-select-sm"
-                            onchange="loadAreaByLokasi(this.value)"
+                            class="form-select"
                         >
 
                             <option value="">
                                 -- Pilih Lokasi --
                             </option>
 
-                            <?php while ($l = mysqli_fetch_assoc($q_lokasi)) : ?>
+                            <?php if ($q_lokasi): ?>
 
-                                <option
-                                    value="<?= htmlspecialchars($l['lokasi']) ?>"
-                                    <?= ($l['lokasi'] == ($d['lokasi_area'] ?? '')) ? 'selected' : '' ?>
-                                >
+                                <?php while (
+                                    $l = mysqli_fetch_assoc($q_lokasi)
+                                ): ?>
 
-                                    <?= htmlspecialchars($l['lokasi']) ?>
+                                    <option
+                                        value="<?= e($l['lokasi']) ?>"
+                                        <?= (
+                                            ($l['lokasi'] ?? '') ===
+                                            ($d['lokasi_area'] ?? '')
+                                        )
+                                            ? 'selected'
+                                            : ''
+                                        ?>
+                                    >
 
-                                </option>
+                                        <?= e($l['lokasi']) ?>
 
-                            <?php endwhile; ?>
+                                    </option>
+
+                                <?php endwhile; ?>
+
+                            <?php endif; ?>
 
                         </select>
 
                     </div>
 
 
-
                     <!-- AREA -->
 
-                    <div class="col-md-3">
+                    <div class="col-12 col-md-4">
 
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
+                        <label class="form-label">
                             Area / Bagian
-
                         </label>
 
                         <select
                             name="id_area"
                             id="form_area"
-                            class="form-select form-select-sm"
-                            onchange="loadJenisMesin(this.value)"
+                            class="form-select"
                         >
 
                             <option value="">
@@ -487,22 +1160,18 @@ include "../template/header.php";
                     </div>
 
 
+                    <!-- JENIS -->
 
-                    <!-- JENIS MESIN -->
+                    <div class="col-12 col-md-4">
 
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
+                        <label class="form-label">
                             Jenis Mesin
-
                         </label>
 
                         <select
                             name="id_jenis_mesin"
                             id="form_jenis_mesin"
-                            class="form-select form-select-sm"
-                            onchange="loadMesin(this.value)"
+                            class="form-select"
                         >
 
                             <option value="">
@@ -514,22 +1183,18 @@ include "../template/header.php";
                     </div>
 
 
-
                     <!-- MESIN -->
 
-                    <div class="col-md-3">
+                    <div class="col-12 col-md-6">
 
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
+                        <label class="form-label">
                             Mesin Induk
-
                         </label>
 
                         <select
                             name="id_mesin"
                             id="form_mesin"
-                            class="form-select form-select-sm"
-                            onchange="loadSubMesinForm(this.value)"
+                            class="form-select"
                         >
 
                             <option value="">
@@ -541,21 +1206,23 @@ include "../template/header.php";
                     </div>
 
 
-
                     <!-- SUB MESIN -->
 
-                    <div class="col-md-3">
+                    <div class="col-12 col-md-6">
 
-                        <label class="form-label fw-semibold text-dark small mb-1">
+                        <label class="form-label">
 
                             Sub Mesin
+
+                            <span class="text-danger">*</span>
 
                         </label>
 
                         <select
                             name="id_sub_mesin"
                             id="form_sub_mesin"
-                            class="form-select form-select-sm"
+                            class="form-select"
+                            required
                         >
 
                             <option value="">
@@ -566,386 +1233,503 @@ include "../template/header.php";
 
                     </div>
 
+                </div>
+
+
+                <hr class="form-divider">
+
+
+                <!-- =================================================
+                     FOTO
+                ================================================== -->
+
+                <div class="form-section-title">
+
+                    <i class="bi bi-image-fill"></i>
+
+                    FOTO KOMPONEN
 
                 </div>
 
 
+                <div class="image-upload-wrapper">
 
-                <hr class="my-3 text-muted opacity-25">
+                    <div class="component-image-preview">
 
+                        <?php
+
+                        $gambar_sekarang =
+                            $d['gambar'] ?? '';
+
+                        $gambar_path =
+                            "../uploads/komponen/" .
+                            basename($gambar_sekarang);
+
+                        $ada_gambar =
+                            !empty($gambar_sekarang) &&
+                            is_file($gambar_path);
+
+                        ?>
+
+                        <?php if ($ada_gambar): ?>
+
+                            <img
+                                src="<?= e($gambar_path) ?>"
+                                id="previewGambar"
+                                alt="Foto Komponen"
+                            >
+
+                            <div
+                                class="component-image-empty"
+                                id="emptyPreview"
+                                style="display:none"
+                            >
+
+                                <i class="bi bi-image"></i>
+
+                                <div>
+                                    Belum ada gambar
+                                </div>
+
+                            </div>
+
+                        <?php else: ?>
+
+                            <img
+                                src=""
+                                id="previewGambar"
+                                style="display:none"
+                                alt="Preview"
+                            >
+
+                            <div
+                                class="component-image-empty"
+                                id="emptyPreview"
+                            >
+
+                                <i class="bi bi-image"></i>
+
+                                <div>
+                                    Belum ada gambar
+                                </div>
+
+                            </div>
+
+                        <?php endif; ?>
+
+                    </div>
+
+
+                    <div class="image-upload-info">
+
+                        <label class="form-label">
+                            Upload Foto Komponen
+                        </label>
+
+                        <input
+                            type="file"
+                            name="gambar"
+                            id="gambar"
+                            class="form-control"
+                            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                        >
+
+                        <div class="form-text mt-2">
+
+                            JPG, PNG, WEBP.
+                            Maksimal 2 MB.
+
+                        </div>
+
+                        <div class="image-current-info">
+
+                            <i class="bi bi-info-circle me-1"></i>
+
+                            Foto lama tetap digunakan jika
+                            tidak memilih foto baru.
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <hr class="form-divider">
 
 
                 <!-- =================================================
-                     SECTION 2
+                     SPESIFIKASI
                 ================================================== -->
 
-                <h6 class="fw-bold text-primary mb-3 small">
+                <div class="form-section-title">
 
-                    <i class="bi bi-tools me-1"></i>
+                    <i class="bi bi-cpu-fill"></i>
 
                     SPESIFIKASI & BRAND
 
-                </h6>
-
-
-                <div class="row g-3 mb-3">
-
-
-                    <!-- BRAND -->
-
-                    <div class="col-md-4">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Brand / Merk
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="brand"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['brand'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- TIPE -->
-
-                    <div class="col-md-4">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Tipe
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="tipe"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['tipe'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- PART NUMBER -->
-
-                    <div class="col-md-4">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Part Number
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="part_number"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['part_number'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- DAYA -->
-
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Daya
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="daya"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['daya'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- IO ADDRESS -->
-
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            IO Address
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="io_address"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['io_address'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- INPUT VOLTAGE -->
-
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Input Voltage
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="input_voltage"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['input_voltage'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- FREKUENSI INPUT -->
-
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Frekuensi Input
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="frekuensi_input"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['frekuensi_input'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- ARUS INPUT -->
-
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Arus Input
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="arus_input"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['arus_input'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- OUTPUT -->
-
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Output
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="output"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['output'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- FREKUENSI OUTPUT -->
-
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            Frekuensi Output
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="frekuensi_output"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['frekuensi_output'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
-
-                    <!-- IP RATING -->
-
-                    <div class="col-md-3">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
-                            IP Rating
-
-                        </label>
-
-                        <input
-                            type="text"
-                            name="ip_rating"
-                            class="form-control form-control-sm"
-                            value="<?= htmlspecialchars($d['ip_rating'] ?? '') ?>"
-                        >
-
-                    </div>
-
-
                 </div>
-
-
-
-                <hr class="my-3 text-muted opacity-25">
-
-
-
-                <!-- =================================================
-                     SECTION 3
-                ================================================== -->
-
-                <h6 class="fw-bold text-primary mb-3 small">
-
-                    <i class="bi bi-card-checklist me-1"></i>
-
-                    STATUS KOMPONEN
-
-                </h6>
 
 
                 <div class="row g-3">
 
 
-                    <!-- KONDISI -->
+                    <div class="col-12">
 
-                    <div class="col-md-4">
+                        <label class="form-label">
+                            Spesifikasi
+                        </label>
 
-                        <label class="form-label fw-semibold text-dark small mb-1">
+                        <textarea
+                            name="spesifikasi"
+                            class="form-control"
+                            rows="2"
+                        ><?= e($d['spesifikasi'] ?? '') ?></textarea>
+
+                    </div>
+
+
+                    <div class="col-12 col-md-4">
+
+                        <label class="form-label">
+                            Brand / Merk
+                        </label>
+
+                        <input
+                            type="text"
+                            name="brand"
+                            class="form-control"
+                            value="<?= e($d['brand'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-md-4">
+
+                        <label class="form-label">
+                            Tipe
+                        </label>
+
+                        <input
+                            type="text"
+                            name="tipe"
+                            class="form-control"
+                            value="<?= e($d['tipe'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-md-4">
+
+                        <label class="form-label">
+                            Part Number
+                        </label>
+
+                        <input
+                            type="text"
+                            name="part_number"
+                            class="form-control"
+                            value="<?= e($d['part_number'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-sm-6 col-md-3">
+
+                        <label class="form-label">
+                            Daya
+                        </label>
+
+                        <input
+                            type="text"
+                            name="daya"
+                            class="form-control"
+                            value="<?= e($d['daya'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-sm-6 col-md-3">
+
+                        <label class="form-label">
+                            IO Address
+                        </label>
+
+                        <input
+                            type="text"
+                            name="io_address"
+                            class="form-control"
+                            value="<?= e($d['io_address'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-sm-6 col-md-3">
+
+                        <label class="form-label">
+                            IP Address
+                        </label>
+
+                        <input
+                            type="text"
+                            name="ip_address"
+                            class="form-control"
+                            value="<?= e($d['ip_address'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-sm-6 col-md-3">
+
+                        <label class="form-label">
+                            Input Voltage
+                        </label>
+
+                        <input
+                            type="text"
+                            name="input_voltage"
+                            class="form-control"
+                            value="<?= e($d['input_voltage'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-sm-6 col-md-3">
+
+                        <label class="form-label">
+                            Frekuensi Input
+                        </label>
+
+                        <input
+                            type="text"
+                            name="frekuensi_input"
+                            class="form-control"
+                            value="<?= e($d['frekuensi_input'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-sm-6 col-md-3">
+
+                        <label class="form-label">
+                            Arus Input
+                        </label>
+
+                        <input
+                            type="text"
+                            name="arus_input"
+                            class="form-control"
+                            value="<?= e($d['arus_input'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-sm-6 col-md-3">
+
+                        <label class="form-label">
+                            Output
+                        </label>
+
+                        <input
+                            type="text"
+                            name="output"
+                            class="form-control"
+                            value="<?= e($d['output'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-sm-6 col-md-3">
+
+                        <label class="form-label">
+                            Frekuensi Output
+                        </label>
+
+                        <input
+                            type="text"
+                            name="frekuensi_output"
+                            class="form-control"
+                            value="<?= e($d['frekuensi_output'] ?? '') ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-12 col-sm-6 col-md-3">
+
+                        <label class="form-label">
+                            IP Rating
+                        </label>
+
+                        <input
+                            type="text"
+                            name="ip_rating"
+                            class="form-control"
+                            value="<?= e($d['ip_rating'] ?? '') ?>"
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <hr class="form-divider">
+
+
+                <!-- =================================================
+                     KONDISI
+                ================================================== -->
+
+                <div class="form-section-title">
+
+                    <i class="bi bi-card-checklist"></i>
+
+                    STATUS KOMPONEN
+
+                </div>
+
+
+                <div class="row g-3">
+
+                    <div class="col-12 col-md-4">
+
+                        <label class="form-label">
 
                             Kondisi
+
                             <span class="text-danger">*</span>
 
                         </label>
 
-
                         <select
                             name="kondisi"
-                            class="form-select form-select-sm"
+                            class="form-select"
                             required
                         >
 
-                            <option
-                                value="Baik"
-                                <?= (($d['kondisi'] ?? '') == 'Baik') ? 'selected' : '' ?>
-                            >
-                                Baik
+                            <option value="">
+                                -- Pilih Kondisi --
                             </option>
 
-                            <option
-                                value="Perlu Pemeriksaan"
-                                <?= (($d['kondisi'] ?? '') == 'Perlu Pemeriksaan') ? 'selected' : '' ?>
-                            >
-                                Perlu Pemeriksaan
-                            </option>
+                            <?php
 
-                            <option
-                                value="Dalam Perbaikan"
-                                <?= (($d['kondisi'] ?? '') == 'Dalam Perbaikan') ? 'selected' : '' ?>
-                            >
-                                Dalam Perbaikan
-                            </option>
+                            $kondisi_options = [
+                                'Baik',
+                                'Perlu Pemeriksaan',
+                                'Dalam Perbaikan'
+                            ];
+
+                            foreach (
+                                $kondisi_options
+                                as $kondisi_option
+                            ):
+
+                            ?>
+
+                                <option
+                                    value="<?= e($kondisi_option) ?>"
+                                    <?= (
+                                        ($d['kondisi'] ?? '') ===
+                                        $kondisi_option
+                                    )
+                                        ? 'selected'
+                                        : ''
+                                    ?>
+                                >
+
+                                    <?= e($kondisi_option) ?>
+
+                                </option>
+
+                            <?php endforeach; ?>
 
                         </select>
 
                     </div>
 
 
+                    <div class="col-12 col-md-8">
 
-                    <!-- KETERANGAN -->
-
-                    <div class="col-md-8">
-
-                        <label class="form-label fw-semibold text-dark small mb-1">
-
+                        <label class="form-label">
                             Keterangan Tambahan
-
                         </label>
 
                         <textarea
                             name="keterangan"
-                            class="form-control form-control-sm"
-                            rows="2"
-                        ><?= htmlspecialchars($d['keterangan'] ?? '') ?></textarea>
+                            class="form-control"
+                            rows="3"
+                        ><?= e($d['keterangan'] ?? '') ?></textarea>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                     BUTTON
+                ================================================== -->
+
+                <div class="edit-action-bar">
+
+                    <div class="edit-action-left">
+
+                        <a
+                            href="detail.php?id=<?= $id ?>"
+                            class="btn btn-light border"
+                        >
+
+                            <i class="bi bi-eye me-1"></i>
+
+                            Lihat Detail
+
+                        </a>
 
                     </div>
 
 
-                </div>
+                    <div class="edit-action-right">
+
+                        <a
+                            href="index.php"
+                            class="btn btn-light border"
+                        >
+
+                            <i class="bi bi-x-lg me-1"></i>
+
+                            Batal
+
+                        </a>
 
 
+                        <button
+                            type="submit"
+                            name="update"
+                            value="1"
+                            class="btn btn-warning text-dark"
+                            id="btnUpdate"
+                        >
 
-                <!-- BUTTON -->
+                            <i class="bi bi-check-lg me-1"></i>
 
-                <div class="border-top mt-3 pt-3 d-flex align-items-center gap-2">
+                            Update Data
 
+                        </button>
 
-                    <button
-                        type="submit"
-                        name="update"
-                        class="btn btn-warning btn-sm fw-semibold text-dark px-4"
-                    >
-
-                        <i class="bi bi-check-lg me-1"></i>
-
-                        Update Data
-
-                    </button>
-
-
-                    <a
-                        href="index.php"
-                        class="btn btn-light border px-4 btn-sm fw-semibold text-secondary"
-                    >
-
-                        Batal
-
-                    </a>
-
+                    </div>
 
                 </div>
-
 
             </form>
-
 
         </div>
 
@@ -954,142 +1738,245 @@ include "../template/header.php";
 </div>
 
 
-
 <script>
 
 /* =========================================================
-   LOAD AREA BERDASARKAN LOKASI
+   ELEMENT
 ========================================================= */
 
-function loadAreaByLokasi(
-    lokasi,
-    selectedArea = ''
-) {
-
-    const areaSelect =
-        document.getElementById('form_area');
-
-    const jenisSelect =
-        document.getElementById('form_jenis_mesin');
-
-    const mesinSelect =
-        document.getElementById('form_mesin');
-
-    const subSelect =
-        document.getElementById('form_sub_mesin');
-
-
-    areaSelect.innerHTML =
-        '<option value="">-- Pilih Area --</option>';
-
-    jenisSelect.innerHTML =
-        '<option value="">-- Pilih Jenis Mesin --</option>';
-
-    mesinSelect.innerHTML =
-        '<option value="">-- Pilih Mesin --</option>';
-
-    subSelect.innerHTML =
-        '<option value="">-- Pilih Sub Mesin --</option>';
-
-
-    if (!lokasi) {
-        return;
-    }
-
-
-    fetch(
-        'get_area.php?lokasi=' +
-        encodeURIComponent(lokasi)
-    )
-
-    .then(response => response.text())
-
-    .then(data => {
-
-        areaSelect.innerHTML = data;
-
-        if (selectedArea !== '') {
-
-            areaSelect.value = selectedArea;
-
-        }
-
-    })
-
-    .catch(err => {
-
-        console.error(
-            'Gagal memuat Area:',
-            err
-        );
-
-    });
-
+function el(id)
+{
+    return document.getElementById(id);
 }
 
 
 /* =========================================================
-   LOAD JENIS MESIN
+   RESET
 ========================================================= */
 
-function loadJenisMesin(
-    id_area,
-    selectedJenis = ''
-) {
+function resetSelect(select, text)
+{
+    if (!select) return;
 
-    const jenisSelect =
-        document.getElementById('form_jenis_mesin');
-
-    const mesinSelect =
-        document.getElementById('form_mesin');
-
-    const subSelect =
-        document.getElementById('form_sub_mesin');
+    select.innerHTML =
+        '<option value="">' +
+        text +
+        '</option>';
+}
 
 
-    jenisSelect.innerHTML =
-        '<option value="">-- Pilih Jenis Mesin --</option>';
+/* =========================================================
+   PREVIEW GAMBAR
+========================================================= */
 
-    mesinSelect.innerHTML =
-        '<option value="">-- Pilih Mesin --</option>';
+const gambarInput = el('gambar');
 
-    subSelect.innerHTML =
-        '<option value="">-- Pilih Sub Mesin --</option>';
+if (gambarInput) {
+
+    gambarInput.addEventListener(
+        'change',
+        function()
+        {
+            const file = this.files[0];
+
+            if (!file) return;
+
+            if (file.size > 2 * 1024 * 1024) {
+
+                alert(
+                    'Ukuran gambar maksimal 2 MB.'
+                );
+
+                this.value = '';
+
+                return;
+            }
+
+            const allowed = [
+                'image/jpeg',
+                'image/png',
+                'image/webp'
+            ];
+
+            if (!allowed.includes(file.type)) {
+
+                alert(
+                    'Format gambar harus JPG, PNG, atau WEBP.'
+                );
+
+                this.value = '';
+
+                return;
+            }
+
+            const reader =
+                new FileReader();
+
+            reader.onload =
+                function(e)
+                {
+                    const preview =
+                        el('previewGambar');
+
+                    const empty =
+                        el('emptyPreview');
+
+                    if (preview) {
+
+                        preview.src =
+                            e.target.result;
+
+                        preview.style.display =
+                            'block';
+                    }
+
+                    if (empty) {
+
+                        empty.style.display =
+                            'none';
+                    }
+                };
+
+            reader.readAsDataURL(file);
+        }
+    );
+}
 
 
-    if (!id_area) {
-        return;
-    }
+/* =========================================================
+   LOAD AREA
+========================================================= */
 
+async function loadAreaByLokasi(
+    lokasiValue,
+    selectedArea = ''
+)
+{
+    const area =
+        el('form_area');
 
-    fetch(
-        'get_jenis_mesin.php?id_area=' +
-        id_area
-    )
+    resetSelect(
+        area,
+        '-- Pilih Area --'
+    );
 
-    .then(response => response.text())
+    if (!lokasiValue) return;
 
-    .then(data => {
+    try {
 
-        jenisSelect.innerHTML = data;
+        const response =
+            await fetch(
+                'get_area.php?lokasi=' +
+                encodeURIComponent(lokasiValue) +
+                '&_=' +
+                Date.now()
+            );
 
-        if (selectedJenis !== '') {
-
-            jenisSelect.value = selectedJenis;
-
+        if (!response.ok) {
+            throw new Error(
+                'HTTP ' +
+                response.status
+            );
         }
 
-    })
+        const html =
+            await response.text();
 
-    .catch(err => {
+        area.innerHTML =
+            html;
 
-        console.error(
-            'Gagal memuat Jenis Mesin:',
-            err
+        if (selectedArea) {
+
+            area.value =
+                String(selectedArea);
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        resetSelect(
+            area,
+            '-- Gagal memuat Area --'
         );
+    }
+}
 
-    });
 
+/* =========================================================
+   LOAD JENIS
+========================================================= */
+
+async function loadJenisMesin(
+    idArea,
+    selectedJenis = ''
+)
+{
+    const jenis =
+        el('form_jenis_mesin');
+
+    const mesin =
+        el('form_mesin');
+
+    const sub =
+        el('form_sub_mesin');
+
+    resetSelect(
+        jenis,
+        '-- Pilih Jenis Mesin --'
+    );
+
+    resetSelect(
+        mesin,
+        '-- Pilih Mesin --'
+    );
+
+    resetSelect(
+        sub,
+        '-- Pilih Sub Mesin --'
+    );
+
+    if (!idArea) return;
+
+    try {
+
+        const response =
+            await fetch(
+                'get_jenis_mesin.php?id_area=' +
+                encodeURIComponent(idArea) +
+                '&_=' +
+                Date.now()
+            );
+
+        if (!response.ok) {
+
+            throw new Error(
+                'HTTP ' +
+                response.status
+            );
+        }
+
+        const html =
+            await response.text();
+
+        jenis.innerHTML =
+            html;
+
+        if (selectedJenis) {
+
+            jenis.value =
+                String(selectedJenis);
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        resetSelect(
+            jenis,
+            '-- Gagal memuat Jenis Mesin --'
+        );
+    }
 }
 
 
@@ -1097,58 +1984,68 @@ function loadJenisMesin(
    LOAD MESIN
 ========================================================= */
 
-function loadMesin(
-    id_jenis,
+async function loadMesin(
+    idJenis,
     selectedMesin = ''
-) {
+)
+{
+    const mesin =
+        el('form_mesin');
 
-    const mesinSelect =
-        document.getElementById('form_mesin');
+    const sub =
+        el('form_sub_mesin');
 
-    const subSelect =
-        document.getElementById('form_sub_mesin');
+    resetSelect(
+        mesin,
+        '-- Pilih Mesin --'
+    );
 
+    resetSelect(
+        sub,
+        '-- Pilih Sub Mesin --'
+    );
 
-    mesinSelect.innerHTML =
-        '<option value="">-- Pilih Mesin --</option>';
+    if (!idJenis) return;
 
-    subSelect.innerHTML =
-        '<option value="">-- Pilih Sub Mesin --</option>';
+    try {
 
+        const response =
+            await fetch(
+                'get_mesin.php?id_jenis=' +
+                encodeURIComponent(idJenis) +
+                '&_=' +
+                Date.now()
+            );
 
-    if (!id_jenis) {
-        return;
-    }
+        if (!response.ok) {
 
-
-    fetch(
-        'get_mesin.php?id_jenis=' +
-        id_jenis
-    )
-
-    .then(response => response.text())
-
-    .then(data => {
-
-        mesinSelect.innerHTML = data;
-
-        if (selectedMesin !== '') {
-
-            mesinSelect.value = selectedMesin;
-
+            throw new Error(
+                'HTTP ' +
+                response.status
+            );
         }
 
-    })
+        const html =
+            await response.text();
 
-    .catch(err => {
+        mesin.innerHTML =
+            html;
 
-        console.error(
-            'Gagal memuat Mesin:',
-            err
+        if (selectedMesin) {
+
+            mesin.value =
+                String(selectedMesin);
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        resetSelect(
+            mesin,
+            '-- Gagal memuat Mesin --'
         );
-
-    });
-
+    }
 }
 
 
@@ -1156,62 +2053,147 @@ function loadMesin(
    LOAD SUB MESIN
 ========================================================= */
 
-function loadSubMesinForm(
-    id_mesin,
+async function loadSubMesin(
+    idMesin,
     selectedSub = ''
-) {
+)
+{
+    const sub =
+        el('form_sub_mesin');
 
-    const subSelect =
-        document.getElementById('form_sub_mesin');
+    resetSelect(
+        sub,
+        '-- Pilih Sub Mesin --'
+    );
 
+    if (!idMesin) return;
 
-    subSelect.innerHTML =
-        '<option value="">-- Pilih Sub Mesin --</option>';
+    try {
 
+        const response =
+            await fetch(
+                'get_sub_mesin.php?id_mesin=' +
+                encodeURIComponent(idMesin) +
+                '&_=' +
+                Date.now()
+            );
 
-    if (!id_mesin) {
-        return;
-    }
+        if (!response.ok) {
 
-
-    fetch(
-        'get_sub_mesin.php?id_mesin=' +
-        id_mesin
-    )
-
-    .then(response => response.text())
-
-    .then(data => {
-
-        subSelect.innerHTML = data;
-
-        if (selectedSub !== '') {
-
-            subSelect.value = selectedSub;
-
+            throw new Error(
+                'HTTP ' +
+                response.status
+            );
         }
 
-    })
+        const html =
+            await response.text();
 
-    .catch(err => {
+        sub.innerHTML =
+            html;
 
-        console.error(
-            'Gagal memuat Sub Mesin:',
-            err
+        if (selectedSub) {
+
+            sub.value =
+                String(selectedSub);
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        resetSelect(
+            sub,
+            '-- Gagal memuat Sub Mesin --'
         );
-
-    });
-
+    }
 }
 
 
 /* =========================================================
-   INISIALISASI DATA EDIT
+   EVENT
+========================================================= */
+
+const lokasi =
+    el('form_lokasi');
+
+if (lokasi) {
+
+    lokasi.addEventListener(
+        'change',
+        function()
+        {
+            loadAreaByLokasi(
+                this.value,
+                ''
+            );
+        }
+    );
+}
+
+
+const area =
+    el('form_area');
+
+if (area) {
+
+    area.addEventListener(
+        'change',
+        function()
+        {
+            loadJenisMesin(
+                this.value,
+                ''
+            );
+        }
+    );
+}
+
+
+const jenis =
+    el('form_jenis_mesin');
+
+if (jenis) {
+
+    jenis.addEventListener(
+        'change',
+        function()
+        {
+            loadMesin(
+                this.value,
+                ''
+            );
+        }
+    );
+}
+
+
+const mesin =
+    el('form_mesin');
+
+if (mesin) {
+
+    mesin.addEventListener(
+        'change',
+        function()
+        {
+            loadSubMesin(
+                this.value,
+                ''
+            );
+        }
+    );
+}
+
+
+/* =========================================================
+   INITIAL DATA
 ========================================================= */
 
 document.addEventListener(
-    "DOMContentLoaded",
-    function() {
+    'DOMContentLoaded',
+    async function()
+    {
 
         const initLokasi =
             <?= json_encode($d['lokasi_area'] ?? '') ?>;
@@ -1223,91 +2205,157 @@ document.addEventListener(
             <?= json_encode($d['id_jenis_mesin'] ?? '') ?>;
 
         const initMesin =
-            <?= json_encode($d['id_mesin'] ?? '') ?>;
+            <?= json_encode($d['sm_id_mesin'] ?? '') ?>;
 
         const initSub =
             <?= json_encode($d['id_sub_mesin'] ?? '') ?>;
 
 
-        /*
-         * Urutan:
-         *
-         * Lokasi
-         *    ↓
-         * Area
-         *    ↓
-         * Jenis Mesin
-         *    ↓
-         * Mesin
-         *    ↓
-         * Sub Mesin
-         */
+        if (initLokasi) {
 
-
-        if (initLokasi !== "") {
-
-            loadAreaByLokasi(
+            await loadAreaByLokasi(
                 initLokasi,
                 initArea
             );
+        }
 
 
-            if (initArea !== "") {
+        if (initArea) {
 
-                setTimeout(
-                    function() {
-
-                        loadJenisMesin(
-                            initArea,
-                            initJenis
-                        );
+            await loadJenisMesin(
+                initArea,
+                initJenis
+            );
+        }
 
 
-                        if (initJenis !== "") {
+        if (initJenis) {
 
-                            setTimeout(
-                                function() {
-
-                                    loadMesin(
-                                        initJenis,
-                                        initMesin
-                                    );
+            await loadMesin(
+                initJenis,
+                initMesin
+            );
+        }
 
 
-                                    if (initMesin !== "") {
+        if (initMesin) {
 
-                                        setTimeout(
-                                            function() {
-
-                                                loadSubMesinForm(
-                                                    initMesin,
-                                                    initSub
-                                                );
-
-                                            },
-                                            200
-                                        );
-
-                                    }
-
-                                },
-                                200
-                            );
-
-                        }
-
-                    },
-                    200
-                );
-
-            }
-
+            await loadSubMesin(
+                initMesin,
+                initSub
+            );
         }
 
     }
 );
 
+
+/* =========================================================
+   SUBMIT
+========================================================= */
+
+const form =
+    el('formEditKomponen');
+
+if (form) {
+
+    form.addEventListener(
+        'submit',
+        function(event)
+        {
+
+            const nama =
+                form.querySelector(
+                    '[name="nama_bagian"]'
+                );
+
+            const sub =
+                form.querySelector(
+                    '[name="id_sub_mesin"]'
+                );
+
+            const kondisi =
+                form.querySelector(
+                    '[name="kondisi"]'
+                );
+
+
+            if (
+                !nama ||
+                !nama.value.trim()
+            ) {
+
+                event.preventDefault();
+
+                alert(
+                    'Nama Komponen wajib diisi.'
+                );
+
+                nama.focus();
+
+                return;
+            }
+
+
+            if (
+                !sub ||
+                !sub.value
+            ) {
+
+                event.preventDefault();
+
+                alert(
+                    'Sub Mesin wajib dipilih.'
+                );
+
+                sub.focus();
+
+                return;
+            }
+
+
+            if (
+                !kondisi ||
+                !kondisi.value
+            ) {
+
+                event.preventDefault();
+
+                alert(
+                    'Kondisi komponen wajib dipilih.'
+                );
+
+                kondisi.focus();
+
+                return;
+            }
+
+
+            const button =
+                el('btnUpdate');
+
+            if (button) {
+
+                button.disabled = true;
+
+                button.innerHTML =
+                    '<span class="spinner-border spinner-border-sm me-1"></span>' +
+                    ' Menyimpan...';
+            }
+
+        }
+    );
+}
+
 </script>
 
 
-<?php include "../template/footer.php"; ?>
+<?php
+
+include "../template/footer.php";
+
+if (ob_get_level() > 0) {
+    ob_end_flush();
+}
+
+?>

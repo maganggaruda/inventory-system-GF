@@ -1,6 +1,5 @@
 <?php
 include "../koneksi.php";
-include "../template/header.php";
 
 /* =========================================================
    SEARCH
@@ -10,15 +9,14 @@ $keyword = isset($_GET['keyword'])
     ? trim($_GET['keyword'])
     : '';
 
-
 /* =========================================================
    QUERY DATA SUB MESIN
 ========================================================= */
 
-if (!empty($keyword)) {
+if ($keyword !== '') {
 
     $stmt = mysqli_prepare($conn, "
-        SELECT 
+        SELECT
             sm.*,
             m.nama_mesin,
             m.serial_number AS sn_mesin_induk,
@@ -64,12 +62,12 @@ if (!empty($keyword)) {
 
     mysqli_stmt_execute($stmt);
 
-    $sql = mysqli_stmt_get_result($stmt);
+    $result = mysqli_stmt_get_result($stmt);
 
 } else {
 
-    $sql = mysqli_query($conn, "
-        SELECT 
+    $result = mysqli_query($conn, "
+        SELECT
             sm.*,
             m.nama_mesin,
             m.serial_number AS sn_mesin_induk,
@@ -97,24 +95,40 @@ if (!empty($keyword)) {
     ");
 }
 
-
 /* =========================================================
    TOTAL DATA
 ========================================================= */
 
-$total_sub_mesin = $sql
-    ? mysqli_num_rows($sql)
+$total_sub_mesin = $result
+    ? mysqli_num_rows($result)
     : 0;
 
+/* =========================================================
+   HEADER TEMPLATE
+========================================================= */
+
+include "../template/header.php";
 ?>
 
 <style>
 
 /* =========================================================
-   WHITE TOP BAR
+   PAGE
+========================================================= */
+
+.submachine-page {
+    width: 100%;
+    min-width: 0;
+}
+
+
+/* =========================================================
+   TOP HEADER
 ========================================================= */
 
 .submachine-topbar {
+
+    position: relative;
 
     background: #ffffff;
 
@@ -122,97 +136,17 @@ $total_sub_mesin = $sql
 
     border-radius: 14px;
 
-    padding: 18px 22px;
+    padding: 18px 22px 18px 26px;
 
     box-shadow:
-        0 3px 12px rgba(15,23,42,.04);
+        0 3px 12px rgba(15, 23, 42, .04);
 
-    margin-bottom: 22px;
-}
-
-/* =========================================================
-   PAGE TITLE
-========================================================= */
-
-.submachine-page-title {
-
-    font-size: 25px;
-
-    font-weight: 800;
-
-    color: #172033;
-
-    margin: 0;
-
-    line-height: 1.3;
-}
-
-.submachine-page-subtitle {
-
-    color: #64748b;
-
-    font-size: 14px;
-
-    margin: 0;
-}
-
-
-/* =========================================================
-   ADD BUTTON
-========================================================= */
-
-.btn-add-submachine {
-
-    background: linear-gradient(
-        135deg,
-        #005baa,
-        #0076c8
-    );
-
-    border: none;
-
-    color: #fff;
-
-    border-radius: 10px;
-
-    padding: 10px 16px;
-
-    font-weight: 600;
-
-    transition: .2s;
-}
-
-.btn-add-submachine:hover {
-
-    color: #fff;
-
-    transform: translateY(-1px);
-
-    box-shadow:
-        0 7px 18px rgba(0,91,170,.20);
-}
-
-
-/* =========================================================
-   MAIN CARD
-========================================================= */
-
-.submachine-card {
-
-    background: #fff;
-
-    border: 1px solid #e5e7eb;
-
-    border-radius: 16px;
+    margin-bottom: 20px;
 
     overflow: hidden;
-
-    box-shadow:
-        0 3px 12px rgba(15,23,42,.04);
 }
-/* garis biru kecil di kiri */
 
-.submachine-page-header::before {
+.submachine-topbar::before {
 
     content: "";
 
@@ -235,34 +169,134 @@ $total_sub_mesin = $sql
 
 
 /* =========================================================
+   PAGE TITLE
+========================================================= */
+
+.submachine-page-title {
+
+    font-size: 24px;
+
+    font-weight: 800;
+
+    color: #172033;
+
+    margin: 0;
+
+    line-height: 1.3;
+}
+
+.submachine-page-subtitle {
+
+    color: #64748b;
+
+    font-size: 13px;
+
+    margin: 4px 0 0;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   ADD BUTTON
+========================================================= */
+
+.btn-add-submachine {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 4px;
+
+    background: linear-gradient(
+        135deg,
+        #005baa,
+        #0076c8
+    );
+
+    border: none;
+
+    color: #fff;
+
+    border-radius: 9px;
+
+    padding: 9px 15px;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    white-space: nowrap;
+
+    transition: all .2s ease;
+}
+
+.btn-add-submachine:hover {
+
+    color: #fff;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 7px 18px rgba(0, 91, 170, .20);
+}
+
+
+/* =========================================================
+   MAIN CARD
+========================================================= */
+
+.submachine-card {
+
+    background: #ffffff;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 16px;
+
+    overflow: hidden;
+
+    box-shadow:
+        0 3px 12px rgba(15, 23, 42, .04);
+}
+
+
+/* =========================================================
    CARD HEADER
 ========================================================= */
 
 .submachine-card-header {
 
-    padding: 18px 20px;
+    padding: 17px 20px;
 
     border-bottom: 1px solid #e5e7eb;
 
-    background: #fff;
+    background: #ffffff;
 }
 
 .submachine-card-title {
 
-    font-size: 16px;
+    font-size: 15px;
 
     font-weight: 700;
 
     color: #172033;
+
+    line-height: 1.4;
 }
 
 .submachine-card-subtitle {
 
-    font-size: 12px;
+    font-size: 11px;
 
     color: #94a3b8;
 
-    margin-top: 2px;
+    margin-top: 3px;
+
+    line-height: 1.5;
 }
 
 
@@ -274,26 +308,39 @@ $total_sub_mesin = $sql
 
     width: 320px;
 
+    max-width: 100%;
+
     position: relative;
+
+    flex-shrink: 0;
 }
 
 .submachine-search input {
 
     width: 100%;
 
+    height: 38px;
+
     border: 1px solid #dbe3ea;
 
     border-radius: 9px;
 
-    padding: 9px 12px 9px 37px;
+    padding: 8px 12px 8px 37px;
 
-    font-size: 13px;
+    font-size: 12px;
+
+    color: #334155;
 
     outline: none;
 
-    transition: .2s;
+    transition: all .2s ease;
 
     background: #fff;
+}
+
+.submachine-search input::placeholder {
+
+    color: #94a3b8;
 }
 
 .submachine-search input:focus {
@@ -301,7 +348,7 @@ $total_sub_mesin = $sql
     border-color: #0076c8;
 
     box-shadow:
-        0 0 0 3px rgba(0,118,200,.08);
+        0 0 0 3px rgba(0, 118, 200, .08);
 }
 
 .submachine-search i {
@@ -316,6 +363,47 @@ $total_sub_mesin = $sql
 
     color: #94a3b8;
 
+    font-size: 13px;
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   TABLE WRAPPER
+========================================================= */
+
+.submachine-table-wrapper {
+
+    width: 100%;
+
+    overflow-x: auto;
+
+    overflow-y: hidden;
+
+    -webkit-overflow-scrolling: touch;
+}
+
+.submachine-table-wrapper::-webkit-scrollbar {
+
+    height: 7px;
+}
+
+.submachine-table-wrapper::-webkit-scrollbar-track {
+
+    background: #f1f5f9;
+}
+
+.submachine-table-wrapper::-webkit-scrollbar-thumb {
+
+    background: #cbd5e1;
+
+    border-radius: 10px;
+}
+
+.submachine-table-wrapper::-webkit-scrollbar-thumb:hover {
+
+    background: #94a3b8;
 }
 
 
@@ -326,6 +414,8 @@ $total_sub_mesin = $sql
 .submachine-table {
 
     width: 100%;
+
+    min-width: 1120px;
 
     margin: 0;
 
@@ -340,40 +430,44 @@ $total_sub_mesin = $sql
 
     color: #475569;
 
-    font-size: 11px;
+    font-size: 10px;
 
     font-weight: 700;
 
     text-transform: uppercase;
 
-    letter-spacing: .3px;
+    letter-spacing: .35px;
 
-    padding: 13px 14px;
+    padding: 12px 13px;
 
     border-bottom: 1px solid #e5e7eb;
 
     white-space: nowrap;
+
+    vertical-align: middle;
 }
 
 .submachine-table tbody td {
 
-    padding: 15px 14px;
+    padding: 13px;
 
     border-bottom: 1px solid #f1f5f9;
 
     vertical-align: middle;
 
-    font-size: 13px;
+    font-size: 12px;
 
     color: #334155;
+
+    background: #fff;
 }
 
 .submachine-table tbody tr {
 
-    transition: .15s;
+    transition: background .15s ease;
 }
 
-.submachine-table tbody tr:hover {
+.submachine-table tbody tr:hover td {
 
     background: #f8fbff;
 }
@@ -396,11 +490,13 @@ $total_sub_mesin = $sql
 
     object-fit: cover;
 
-    border-radius: 10px;
+    border-radius: 9px;
 
     border: 1px solid #e2e8f0;
 
     background: #f8fafc;
+
+    display: block;
 }
 
 .submachine-photo-placeholder {
@@ -409,7 +505,7 @@ $total_sub_mesin = $sql
 
     height: 46px;
 
-    border-radius: 10px;
+    border-radius: 9px;
 
     display: flex;
 
@@ -423,7 +519,7 @@ $total_sub_mesin = $sql
 
     color: #005baa;
 
-    font-size: 19px;
+    font-size: 18px;
 }
 
 
@@ -437,7 +533,11 @@ $total_sub_mesin = $sql
 
     color: #172033;
 
-    font-size: 14px;
+    font-size: 13px;
+
+    line-height: 1.4;
+
+    transition: color .15s;
 }
 
 .submachine-name:hover {
@@ -447,11 +547,11 @@ $total_sub_mesin = $sql
 
 .submachine-id {
 
-    font-size: 11px;
+    font-size: 10px;
 
     color: #94a3b8;
 
-    margin-top: 2px;
+    margin-top: 3px;
 }
 
 
@@ -473,11 +573,24 @@ $total_sub_mesin = $sql
 
     padding: 4px 7px;
 
-    font-size: 11px;
+    font-size: 10px;
 
     font-weight: 600;
 
     font-family: monospace;
+
+    white-space: nowrap;
+}
+
+.submachine-parent-sn {
+
+    font-size: 10px;
+
+    color: #94a3b8;
+
+    margin-top: 5px;
+
+    line-height: 1.4;
 }
 
 
@@ -489,9 +602,9 @@ $total_sub_mesin = $sql
 
     display: inline-flex;
 
-    align-items: center;
+    align-items: flex-start;
 
-    gap: 6px;
+    gap: 7px;
 
     color: #334155;
 
@@ -499,7 +612,9 @@ $total_sub_mesin = $sql
 
     font-weight: 600;
 
-    transition: .15s;
+    line-height: 1.4;
+
+    transition: color .15s;
 }
 
 .parent-machine:hover {
@@ -510,6 +625,10 @@ $total_sub_mesin = $sql
 .parent-machine i {
 
     color: #005baa;
+
+    margin-top: 1px;
+
+    flex-shrink: 0;
 }
 
 
@@ -529,6 +648,10 @@ $total_sub_mesin = $sql
 }
 
 .submachine-stat {
+
+    display: inline-flex;
+
+    align-items: center;
 
     background: #f8fafc;
 
@@ -550,6 +673,8 @@ $total_sub_mesin = $sql
     color: #334155;
 
     font-weight: 700;
+
+    margin-left: 2px;
 }
 
 
@@ -561,7 +686,7 @@ $total_sub_mesin = $sql
 
     max-width: 220px;
 
-    font-size: 12px;
+    font-size: 11px;
 
     color: #64748b;
 
@@ -574,6 +699,8 @@ $total_sub_mesin = $sql
     -webkit-box-orient: vertical;
 
     overflow: hidden;
+
+    word-break: break-word;
 }
 
 
@@ -594,9 +721,9 @@ $total_sub_mesin = $sql
 
 .submachine-action {
 
-    width: 34px;
+    width: 33px;
 
-    height: 34px;
+    height: 33px;
 
     border-radius: 8px;
 
@@ -610,13 +737,17 @@ $total_sub_mesin = $sql
 
     border: 1px solid transparent;
 
-    transition: .15s;
+    transition: all .15s ease;
 
-    font-size: 14px;
+    font-size: 13px;
+
+    flex-shrink: 0;
 }
 
 
-/* DETAIL */
+/* =========================================================
+   DETAIL
+========================================================= */
 
 .submachine-action-detail {
 
@@ -632,10 +763,14 @@ $total_sub_mesin = $sql
     background: #005baa;
 
     color: #fff;
+
+    border-color: #005baa;
 }
 
 
-/* EDIT */
+/* =========================================================
+   EDIT
+========================================================= */
 
 .submachine-action-edit {
 
@@ -651,10 +786,14 @@ $total_sub_mesin = $sql
     background: #f59e0b;
 
     color: #fff;
+
+    border-color: #f59e0b;
 }
 
 
-/* DELETE */
+/* =========================================================
+   DELETE
+========================================================= */
 
 .submachine-action-delete {
 
@@ -670,6 +809,8 @@ $total_sub_mesin = $sql
     background: #dc2626;
 
     color: #fff;
+
+    border-color: #dc2626;
 }
 
 
@@ -679,7 +820,7 @@ $total_sub_mesin = $sql
 
 .submachine-card-footer {
 
-    padding: 12px 20px;
+    padding: 11px 20px;
 
     background: #f8fafc;
 
@@ -687,17 +828,47 @@ $total_sub_mesin = $sql
 
     color: #64748b;
 
-    font-size: 11px;
+    font-size: 10px;
+
+    line-height: 1.5;
+}
+
+.submachine-card-footer strong {
+
+    color: #334155;
 }
 
 
 /* =========================================================
-   EMPTY
+   RESET SEARCH
+========================================================= */
+
+.submachine-reset {
+
+    color: #005baa;
+
+    text-decoration: none;
+
+    font-weight: 600;
+
+    white-space: nowrap;
+}
+
+.submachine-reset:hover {
+
+    color: #003f78;
+
+    text-decoration: underline;
+}
+
+
+/* =========================================================
+   EMPTY STATE
 ========================================================= */
 
 .submachine-empty {
 
-    padding: 65px 20px;
+    padding: 60px 20px;
 
     text-align: center;
 
@@ -724,7 +895,7 @@ $total_sub_mesin = $sql
 
     color: #94a3b8;
 
-    font-size: 30px;
+    font-size: 29px;
 }
 
 .submachine-empty-title {
@@ -734,48 +905,69 @@ $total_sub_mesin = $sql
     font-weight: 700;
 
     color: #475569;
+
+    line-height: 1.4;
 }
 
 .submachine-empty-text {
 
     font-size: 12px;
 
-    margin-top: 4px;
+    margin-top: 5px;
+
+    line-height: 1.6;
 }
 
 
 /* =========================================================
-   RESPONSIVE
+   MOBILE CARD HEADER
 ========================================================= */
-
-@media (max-width: 1150px) {
-
-    .submachine-table {
-
-        min-width: 1150px;
-    }
-
-}
 
 @media (max-width: 768px) {
 
     .submachine-topbar {
 
-        padding: 16px;
+        padding: 15px 15px 15px 20px;
+
+        border-radius: 12px;
+
+        margin-bottom: 15px;
+    }
+
+    .submachine-topbar::before {
+
+        top: 15px;
+
+        bottom: 15px;
     }
 
     .submachine-page-title {
 
-        font-size: 21px;
+        font-size: 20px;
+    }
+
+    .submachine-page-subtitle {
+
+        font-size: 11px;
+
+        max-width: 100%;
+    }
+
+    .btn-add-submachine {
+
+        width: 100%;
+
+        min-height: 40px;
+    }
+
+    .submachine-card {
+
+        border-radius: 13px;
     }
 
     .submachine-card-header {
 
-        align-items: flex-start !important;
-
-        flex-direction: column;
-
-        gap: 12px;
+        padding: 15px;
     }
 
     .submachine-search {
@@ -783,23 +975,100 @@ $total_sub_mesin = $sql
         width: 100%;
     }
 
+    .submachine-search input {
+
+        height: 40px;
+
+        font-size: 12px;
+    }
+
+    .submachine-card-footer {
+
+        padding: 12px 15px;
+    }
+
+    .submachine-card-footer .d-flex {
+
+        align-items: flex-start !important;
+
+        flex-direction: column;
+    }
+
+    .submachine-reset {
+
+        display: inline-block;
+
+        margin-top: 2px;
+    }
+
+    .submachine-empty {
+
+        padding: 50px 15px;
+    }
+}
+
+
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 480px) {
+
+    .submachine-page-title {
+
+        font-size: 18px;
+    }
+
+    .submachine-page-subtitle {
+
+        font-size: 10px;
+    }
+
+    .submachine-card-title {
+
+        font-size: 14px;
+    }
+
+    .submachine-card-subtitle {
+
+        font-size: 10px;
+    }
+
+    .submachine-empty-icon {
+
+        width: 60px;
+
+        height: 60px;
+
+        font-size: 25px;
+    }
+
+    .submachine-empty-title {
+
+        font-size: 14px;
+    }
+
+    .submachine-empty-text {
+
+        font-size: 11px;
+    }
 }
 
 </style>
 
 
-<div class="container-fluid p-0">
+<div class="container-fluid p-0 submachine-page">
 
 
     <!-- =====================================================
-         WHITE HEADER BAR
+         HEADER
     ====================================================== -->
 
     <div class="submachine-topbar">
 
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
 
-            <div>
+            <div class="flex-grow-1">
 
                 <h2 class="submachine-page-title">
 
@@ -821,7 +1090,7 @@ $total_sub_mesin = $sql
                 class="btn btn-add-submachine"
             >
 
-                <i class="bi bi-plus-lg me-1"></i>
+                <i class="bi bi-plus-lg"></i>
 
                 Tambah Sub Mesin
 
@@ -830,7 +1099,6 @@ $total_sub_mesin = $sql
         </div>
 
     </div>
-
 
 
     <!-- =====================================================
@@ -848,7 +1116,7 @@ $total_sub_mesin = $sql
 
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
 
-                <div>
+                <div class="flex-grow-1">
 
                     <div class="submachine-card-title">
 
@@ -872,6 +1140,7 @@ $total_sub_mesin = $sql
                 <form
                     method="GET"
                     class="submachine-search"
+                    autocomplete="off"
                 >
 
                     <i class="bi bi-search"></i>
@@ -879,8 +1148,9 @@ $total_sub_mesin = $sql
                     <input
                         type="text"
                         name="keyword"
-                        value="<?= htmlspecialchars($keyword) ?>"
-                        placeholder="Cari sub mesin, serial number, mesin..."
+                        value="<?= htmlspecialchars($keyword, ENT_QUOTES, 'UTF-8') ?>"
+                        placeholder="Cari sub mesin, serial, mesin..."
+                        aria-label="Cari sub mesin"
                     >
 
                 </form>
@@ -890,14 +1160,13 @@ $total_sub_mesin = $sql
         </div>
 
 
-
         <!-- =================================================
-             DATA TABLE
+             DATA
         ================================================== -->
 
         <?php if ($total_sub_mesin > 0): ?>
 
-            <div class="table-responsive">
+            <div class="submachine-table-wrapper">
 
                 <table class="submachine-table">
 
@@ -957,17 +1226,60 @@ $total_sub_mesin = $sql
 
                     $no = 1;
 
-                    while ($d = mysqli_fetch_assoc($sql)):
+                    while ($d = mysqli_fetch_assoc($result)):
+
+                        $sub_id = intval($d['id']);
+
+                        $id_mesin = intval(
+                            $d['id_mesin'] ?? 0
+                        );
+
+                        $nama_sub_mesin =
+                            trim(
+                                $d['nama_sub_mesin'] ?? ''
+                            );
+
+                        $serial_sub_mesin =
+                            trim(
+                                $d['serial_number'] ?? ''
+                            );
+
+                        $nama_mesin =
+                            trim(
+                                $d['nama_mesin'] ?? ''
+                            );
+
+                        $sn_mesin_induk =
+                            trim(
+                                $d['sn_mesin_induk'] ?? ''
+                            );
 
                         $foto =
-                            $d['gambar'] ?? '';
+                            trim(
+                                $d['gambar'] ?? ''
+                            );
 
                         $foto_path =
                             "../uploads/sub_mesin/" . $foto;
 
                         $has_foto =
-                            !empty($foto) &&
+                            $foto !== '' &&
                             file_exists($foto_path);
+
+                        $keterangan =
+                            trim(
+                                $d['keterangan'] ?? ''
+                            );
+
+                        $total_komponen =
+                            intval(
+                                $d['total_komponen'] ?? 0
+                            );
+
+                        $total_maintenance =
+                            intval(
+                                $d['total_maintenance'] ?? 0
+                            );
 
                     ?>
 
@@ -989,7 +1301,6 @@ $total_sub_mesin = $sql
                             </td>
 
 
-
                             <!-- =================================================
                                  FOTO
                             ================================================== -->
@@ -997,16 +1308,17 @@ $total_sub_mesin = $sql
                             <td class="text-center">
 
                                 <a
-                                    href="detail.php?id=<?= intval($d['id']) ?>"
+                                    href="detail.php?id=<?= $sub_id ?>"
                                     class="text-decoration-none"
+                                    title="Lihat Detail"
                                 >
 
                                     <?php if ($has_foto): ?>
 
                                         <img
-                                            src="<?= htmlspecialchars($foto_path) ?>"
-                                            class="submachine-photo"
-                                            alt="Foto Sub Mesin"
+                                            src="<?= htmlspecialchars($foto_path, ENT_QUOTES, 'UTF-8') ?>"
+                                            class="submachine-photo mx-auto"
+                                            alt="Foto <?= htmlspecialchars($nama_sub_mesin ?: 'Sub Mesin', ENT_QUOTES, 'UTF-8') ?>"
                                         >
 
                                     <?php else: ?>
@@ -1024,7 +1336,6 @@ $total_sub_mesin = $sql
                             </td>
 
 
-
                             <!-- =================================================
                                  NAMA SUB MESIN
                             ================================================== -->
@@ -1032,28 +1343,29 @@ $total_sub_mesin = $sql
                             <td>
 
                                 <a
-                                    href="detail.php?id=<?= intval($d['id']) ?>"
+                                    href="detail.php?id=<?= $sub_id ?>"
                                     class="text-decoration-none"
                                 >
 
                                     <div class="submachine-name">
 
                                         <?= htmlspecialchars(
-                                            $d['nama_sub_mesin'] ?? '-'
+                                            $nama_sub_mesin ?: '-',
+                                            ENT_QUOTES,
+                                            'UTF-8'
                                         ) ?>
 
                                     </div>
 
                                     <div class="submachine-id">
 
-                                        ID Sub Mesin #<?= intval($d['id']) ?>
+                                        ID Sub Mesin #<?= $sub_id ?>
 
                                     </div>
 
                                 </a>
 
                             </td>
-
 
 
                             <!-- =================================================
@@ -1065,25 +1377,27 @@ $total_sub_mesin = $sql
                                 <span class="submachine-sn">
 
                                     <?= htmlspecialchars(
-                                        !empty($d['serial_number'])
-                                            ? $d['serial_number']
-                                            : '-'
+                                        $serial_sub_mesin ?: '-',
+                                        ENT_QUOTES,
+                                        'UTF-8'
                                     ) ?>
 
                                 </span>
 
-                                <?php if (!empty($d['sn_mesin_induk'])): ?>
 
-                                    <div class="mt-1">
+                                <?php if ($sn_mesin_induk !== ''): ?>
 
-                                        <small class="text-muted">
+                                    <div class="submachine-parent-sn">
 
-                                            SN Mesin:
-                                            <?= htmlspecialchars(
-                                                $d['sn_mesin_induk']
-                                            ) ?>
+                                        <i class="bi bi-arrow-return-right me-1"></i>
 
-                                        </small>
+                                        SN Mesin:
+
+                                        <?= htmlspecialchars(
+                                            $sn_mesin_induk,
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
 
                                     </div>
 
@@ -1092,18 +1406,18 @@ $total_sub_mesin = $sql
                             </td>
 
 
-
                             <!-- =================================================
                                  MESIN INDUK
                             ================================================== -->
 
                             <td>
 
-                                <?php if (!empty($d['nama_mesin'])): ?>
+                                <?php if ($nama_mesin !== '' && $id_mesin > 0): ?>
 
                                     <a
-                                        href="../mesin/detail.php?id=<?= intval($d['id_mesin']) ?>"
+                                        href="../mesin/detail.php?id=<?= $id_mesin ?>"
                                         class="parent-machine"
+                                        title="Lihat Detail Mesin"
                                     >
 
                                         <i class="bi bi-gear-wide-connected"></i>
@@ -1111,7 +1425,9 @@ $total_sub_mesin = $sql
                                         <span>
 
                                             <?= htmlspecialchars(
-                                                $d['nama_mesin']
+                                                $nama_mesin,
+                                                ENT_QUOTES,
+                                                'UTF-8'
                                             ) ?>
 
                                         </span>
@@ -1122,6 +1438,8 @@ $total_sub_mesin = $sql
 
                                     <span class="text-muted">
 
+                                        <i class="bi bi-dash-circle me-1"></i>
+
                                         Tidak terkait
 
                                     </span>
@@ -1129,7 +1447,6 @@ $total_sub_mesin = $sql
                                 <?php endif; ?>
 
                             </td>
-
 
 
                             <!-- =================================================
@@ -1140,9 +1457,6 @@ $total_sub_mesin = $sql
 
                                 <div class="submachine-stats">
 
-
-                                    <!-- KOMPONEN -->
-
                                     <span class="submachine-stat">
 
                                         <i class="bi bi-cpu me-1"></i>
@@ -1151,16 +1465,12 @@ $total_sub_mesin = $sql
 
                                         <strong>
 
-                                            <?= intval(
-                                                $d['total_komponen'] ?? 0
-                                            ) ?>
+                                            <?= $total_komponen ?>
 
                                         </strong>
 
                                     </span>
 
-
-                                    <!-- MAINTENANCE -->
 
                                     <span class="submachine-stat">
 
@@ -1170,9 +1480,7 @@ $total_sub_mesin = $sql
 
                                         <strong>
 
-                                            <?= intval(
-                                                $d['total_maintenance'] ?? 0
-                                            ) ?>
+                                            <?= $total_maintenance ?>
 
                                         </strong>
 
@@ -1183,7 +1491,6 @@ $total_sub_mesin = $sql
                             </td>
 
 
-
                             <!-- =================================================
                                  KETERANGAN
                             ================================================== -->
@@ -1192,18 +1499,13 @@ $total_sub_mesin = $sql
 
                                 <div class="submachine-description">
 
-                                    <?php
+                                    <?php if ($keterangan !== ''): ?>
 
-                                    $keterangan =
-                                        trim(
-                                            $d['keterangan'] ?? ''
-                                        );
-
-                                    if ($keterangan !== ''):
-
-                                    ?>
-
-                                        <?= htmlspecialchars($keterangan) ?>
+                                        <?= htmlspecialchars(
+                                            $keterangan,
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
 
                                     <?php else: ?>
 
@@ -1220,7 +1522,6 @@ $total_sub_mesin = $sql
                             </td>
 
 
-
                             <!-- =================================================
                                  AKSI
                             ================================================== -->
@@ -1233,9 +1534,10 @@ $total_sub_mesin = $sql
                                     <!-- DETAIL -->
 
                                     <a
-                                        href="detail.php?id=<?= intval($d['id']) ?>"
+                                        href="detail.php?id=<?= $sub_id ?>"
                                         class="submachine-action submachine-action-detail"
                                         title="Lihat Detail"
+                                        aria-label="Lihat Detail"
                                     >
 
                                         <i class="bi bi-eye"></i>
@@ -1243,13 +1545,13 @@ $total_sub_mesin = $sql
                                     </a>
 
 
-
                                     <!-- EDIT -->
 
                                     <a
-                                        href="edit.php?id=<?= intval($d['id']) ?>"
+                                        href="edit.php?id=<?= $sub_id ?>"
                                         class="submachine-action submachine-action-edit"
                                         title="Edit Sub Mesin"
+                                        aria-label="Edit Sub Mesin"
                                     >
 
                                         <i class="bi bi-pencil-square"></i>
@@ -1257,17 +1559,18 @@ $total_sub_mesin = $sql
                                     </a>
 
 
-
                                     <!-- HAPUS -->
 
                                     <a
-                                        href="hapus.php?id=<?= intval($d['id']) ?>"
+                                        href="hapus.php?id=<?= $sub_id ?>"
                                         class="submachine-action submachine-action-delete"
                                         title="Hapus Sub Mesin"
+                                        aria-label="Hapus Sub Mesin"
                                         onclick="return confirm(
                                             'Apakah Anda yakin ingin menghapus sub mesin <?= htmlspecialchars(
-                                                $d['nama_sub_mesin'] ?? '',
-                                                ENT_QUOTES
+                                                $nama_sub_mesin,
+                                                ENT_QUOTES,
+                                                'UTF-8'
                                             ) ?>?'
                                         );"
                                     >
@@ -1280,7 +1583,6 @@ $total_sub_mesin = $sql
 
                             </td>
 
-
                         </tr>
 
                     <?php endwhile; ?>
@@ -1292,9 +1594,8 @@ $total_sub_mesin = $sql
             </div>
 
 
-
             <!-- =================================================
-                 FOOTER CARD
+                 FOOTER
             ================================================== -->
 
             <div class="submachine-card-footer">
@@ -1313,12 +1614,16 @@ $total_sub_mesin = $sql
 
                         sub mesin
 
-                        <?php if (!empty($keyword)): ?>
+                        <?php if ($keyword !== ''): ?>
 
                             untuk pencarian:
 
                             <strong>
-                                "<?= htmlspecialchars($keyword) ?>"
+                                "<?= htmlspecialchars(
+                                    $keyword,
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>"
                             </strong>
 
                         <?php endif; ?>
@@ -1326,11 +1631,11 @@ $total_sub_mesin = $sql
                     </div>
 
 
-                    <?php if (!empty($keyword)): ?>
+                    <?php if ($keyword !== ''): ?>
 
                         <a
                             href="index.php"
-                            class="text-decoration-none text-primary fw-semibold"
+                            class="submachine-reset"
                         >
 
                             <i class="bi bi-x-circle me-1"></i>
@@ -1357,14 +1662,22 @@ $total_sub_mesin = $sql
 
                 <div class="submachine-empty-icon">
 
-                    <i class="bi bi-diagram-3"></i>
+                    <?php if ($keyword !== ''): ?>
+
+                        <i class="bi bi-search"></i>
+
+                    <?php else: ?>
+
+                        <i class="bi bi-diagram-3"></i>
+
+                    <?php endif; ?>
 
                 </div>
 
 
                 <div class="submachine-empty-title">
 
-                    <?php if (!empty($keyword)): ?>
+                    <?php if ($keyword !== ''): ?>
 
                         Sub mesin tidak ditemukan
 
@@ -1379,11 +1692,17 @@ $total_sub_mesin = $sql
 
                 <div class="submachine-empty-text">
 
-                    <?php if (!empty($keyword)): ?>
+                    <?php if ($keyword !== ''): ?>
 
                         Tidak ada sub mesin yang sesuai dengan pencarian
 
-                        "<?= htmlspecialchars($keyword) ?>".
+                        <strong>
+                            "<?= htmlspecialchars(
+                                $keyword,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>"
+                        </strong>.
 
                     <?php else: ?>
 
@@ -1396,7 +1715,7 @@ $total_sub_mesin = $sql
 
                 <div class="mt-3">
 
-                    <?php if (!empty($keyword)): ?>
+                    <?php if ($keyword !== ''): ?>
 
                         <a
                             href="index.php"
@@ -1436,4 +1755,16 @@ $total_sub_mesin = $sql
 </div>
 
 
-<?php include "../template/footer.php"; ?>
+<?php
+
+/* =========================================================
+   TUTUP STATEMENT SEARCH
+========================================================= */
+
+if (isset($stmt) && $stmt instanceof mysqli_stmt) {
+    mysqli_stmt_close($stmt);
+}
+
+include "../template/footer.php";
+
+?>

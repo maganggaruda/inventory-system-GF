@@ -1662,7 +1662,17 @@ body {
 /* =========================================================
    DOMPDF
 ========================================================= */
+<?php
+$autoload = __DIR__ . '/../vendor/autoload.php';
 
+use Dompdf\Dompdf;
+use Dompdf\Options;
+
+if (file_exists($autoload)) {
+    require_once $autoload;
+} else {
+    die("Autoload file tidak ditemukan. Pastikan Composer sudah diinstal.");
+}
 @page {
 
     size: A4 landscape;

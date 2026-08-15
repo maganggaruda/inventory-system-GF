@@ -1,314 +1,2293 @@
 <?php
 include "../koneksi.php";
-include "../template/header.php";
 
-$tgl_mulai    = isset($_GET['tgl_mulai']) ? $_GET['tgl_mulai'] : '';
-$tgl_selesai  = isset($_GET['tgl_selesai']) ? $_GET['tgl_selesai'] : '';
-$jenis        = isset($_GET['jenis']) ? $_GET['jenis'] : 'maintenance';
-$id_mesin     = isset($_GET['id_mesin']) ? $_GET['id_mesin'] : '';
-$id_sub_mesin = isset($_GET['id_sub_mesin']) ? $_GET['id_sub_mesin'] : '';
-$cari_komp    = isset($_GET['cari_komponen']) ? trim($_GET['cari_komponen']) : '';
+/* =========================================================
+   PARAMETER FILTER
+========================================================= */
 
-// Query Data Berdasarkan Jenis Laporan & Filter Spesifik
-if ($jenis == 'maintenance') {
+$tgl_mulai = isset($_GET['tgl_mulai'])
+    ? trim($_GET['tgl_mulai'])
+    : '';
+
+$tgl_selesai = isset($_GET['tgl_selesai'])
+    ? trim($_GET['tgl_selesai'])
+    : '';
+
+$jenis = isset($_GET['jenis'])
+    ? trim($_GET['jenis'])
+    : 'maintenance';
+
+$id_mesin = isset($_GET['id_mesin'])
+    ? intval($_GET['id_mesin'])
+    : 0;
+
+$id_sub_mesin = isset($_GET['id_sub_mesin'])
+    ? intval($_GET['id_sub_mesin'])
+    : 0;
+
+$cari_komp = isset($_GET['cari_komponen'])
+    ? trim($_GET['cari_komponen'])
+    : '';
+
+/* =========================================================
+   VALIDASI JENIS LAPORAN
+========================================================= */
+
+if ($jenis !== 'maintenance' && $jenis !== 'komponen') {
+    $jenis = 'maintenance';
+}
+
+
+/* =========================================================
+   DATA MESIN
+========================================================= */
+
+$q_mesin = mysqli_query(
+    $conn,
+    "
+    SELECT
+        id,
+        nama_mesin,
+        serial_number
+    FROM mesin
+    ORDER BY nama_mesin ASC
+    "
+);
+
+
+/* =========================================================
+   DATA SUB MESIN
+   HANYA BERDASARKAN MESIN YANG DIPILIH
+========================================================= */
+
+$q_sub_mesin = false;
+
+if ($id_mesin > 0) {
+
+    $stmt_sub_filter = mysqli_prepare(
+        $conn,
+        "
+        SELECT
+            id,
+            nama_sub_mesin
+        FROM sub_mesin
+        WHERE id_mesin = ?
+        ORDER BY nama_sub_mesin ASC
+        "
+    );
+
+    mysqli_stmt_bind_param(
+        $stmt_sub_filter,
+        "i",
+        $id_mesin
+    );
+
+    mysqli_stmt_execute(
+        $stmt_sub_filter
+    );
+
+    $q_sub_mesin =
+        mysqli_stmt_get_result(
+            $stmt_sub_filter
+        );
+}
+
+
+/* =========================================================
+   QUERY LAPORAN
+========================================================= */
+
+$sql = false;
+$stmt = null;
+
+if ($jenis === 'maintenance') {
+
+    /* =====================================================
+       LAPORAN RIWAYAT MAINTENANCE
+    ====================================================== */
+
     $query = "
-        SELECT rm.*, k.nama_bagian, m.serial_number, m.nama_mesin 
+        SELECT
+            rm.*,
+
+            k.nama_bagian,
+            k.serial_number AS serial_number_komponen,
+            k.brand,
+            k.tipe,
+
+            sm.id AS id_sub_mesin,
+            sm.nama_sub_mesin,
+
+            m.id AS id_mesin,
+            m.nama_mesin,
+            m.serial_number AS serial_number_mesin
+
         FROM riwayat_maintenance rm
-        LEFT JOIN komponen k ON rm.id_komponen = k.id
-        LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
-        LEFT JOIN mesin m ON sm.id_mesin = m.id
+
+        LEFT JOIN komponen k
+            ON rm.id_komponen = k.id
+
+        LEFT JOIN sub_mesin sm
+            ON k.id_sub_mesin = sm.id
+
+        LEFT JOIN mesin m
+            ON sm.id_mesin = m.id
+
         WHERE 1=1
     ";
+
     $params = [];
     $types  = "";
 
-    // Filter Tanggal Bersifat Opsional jika diisi
+
+    /* =====================================================
+       FILTER TANGGAL
+    ====================================================== */
+
     if (!empty($tgl_mulai) && !empty($tgl_selesai)) {
-        $query .= " AND rm.tanggal BETWEEN ? AND ?";
+
+        /*
+         * Jika tanggal bertipe DATE:
+         * BETWEEN tanggal awal dan tanggal akhir tetap aman.
+         *
+         * Jika DATETIME:
+         * menggunakan >= tanggal 00:00:00
+         * dan < tanggal berikutnya 00:00:00
+         */
+
+        $query .= "
+            AND rm.tanggal >= ?
+            AND rm.tanggal < DATE_ADD(?, INTERVAL 1 DAY)
+        ";
+
         $params[] = $tgl_mulai;
         $params[] = $tgl_selesai;
-        $types  .= "ss";
-    }
 
-    if (!empty($id_mesin)) {
-        $query .= " AND sm.id_mesin = ?";
-        $params[] = $id_mesin;
-        $types .= "i";
-    }
-    if (!empty($id_sub_mesin)) {
-        $query .= " AND k.id_sub_mesin = ?";
-        $params[] = $id_sub_mesin;
-        $types .= "i";
-    }
-    if (!empty($cari_komp)) {
-        $query .= " AND (k.nama_bagian LIKE ? OR m.serial_number LIKE ?)";
-        $params[] = "%$cari_komp%";
-        $params[] = "%$cari_komp%";
         $types .= "ss";
-    }
-    $query .= " ORDER BY rm.tanggal DESC";
 
-    $stmt = mysqli_prepare($conn, $query);
-    if (!empty($params)) {
-        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    } elseif (!empty($tgl_mulai)) {
+
+        $query .= "
+            AND rm.tanggal >= ?
+        ";
+
+        $params[] = $tgl_mulai;
+
+        $types .= "s";
+
+    } elseif (!empty($tgl_selesai)) {
+
+        $query .= "
+            AND rm.tanggal < DATE_ADD(?, INTERVAL 1 DAY)
+        ";
+
+        $params[] = $tgl_selesai;
+
+        $types .= "s";
     }
-    mysqli_stmt_execute($stmt);
-    $sql = mysqli_stmt_get_result($stmt);
+
+
+    /* =====================================================
+       FILTER MESIN
+    ====================================================== */
+
+    if ($id_mesin > 0) {
+
+        $query .= "
+            AND sm.id_mesin = ?
+        ";
+
+        $params[] = $id_mesin;
+
+        $types .= "i";
+    }
+
+
+    /* =====================================================
+       FILTER SUB MESIN
+    ====================================================== */
+
+    if ($id_sub_mesin > 0) {
+
+        $query .= "
+            AND k.id_sub_mesin = ?
+        ";
+
+        $params[] = $id_sub_mesin;
+
+        $types .= "i";
+    }
+
+
+    /* =====================================================
+       SEARCH KOMPONEN
+    ====================================================== */
+
+    if ($cari_komp !== '') {
+
+        $search = "%" . $cari_komp . "%";
+
+        $query .= "
+            AND (
+                k.nama_bagian LIKE ?
+                OR k.serial_number LIKE ?
+                OR m.serial_number LIKE ?
+                OR m.nama_mesin LIKE ?
+                OR sm.nama_sub_mesin LIKE ?
+            )
+        ";
+
+        $params[] = $search;
+        $params[] = $search;
+        $params[] = $search;
+        $params[] = $search;
+        $params[] = $search;
+
+        $types .= "sssss";
+    }
+
+
+    /* =====================================================
+       ORDER
+    ====================================================== */
+
+    $query .= "
+        ORDER BY
+            rm.tanggal DESC,
+            rm.id DESC
+    ";
+
+
 } else {
+
+    /* =====================================================
+       LAPORAN INVENTARIS KOMPONEN
+    ====================================================== */
+
     $query = "
-        SELECT k.*, m.nama_mesin, m.serial_number, sm.nama_sub_mesin
+        SELECT
+
+            k.*,
+
+            sm.id AS id_sub_mesin,
+            sm.nama_sub_mesin,
+
+            m.id AS id_mesin,
+            m.nama_mesin,
+            m.serial_number AS serial_number_mesin
+
         FROM komponen k
-        LEFT JOIN sub_mesin sm ON k.id_sub_mesin = sm.id
-        LEFT JOIN mesin m ON sm.id_mesin = m.id
+
+        LEFT JOIN sub_mesin sm
+            ON k.id_sub_mesin = sm.id
+
+        LEFT JOIN mesin m
+            ON sm.id_mesin = m.id
+
         WHERE 1=1
     ";
+
     $params = [];
     $types  = "";
 
-    if (!empty($id_mesin)) {
-        $query .= " AND sm.id_mesin = ?";
-        $params[] = $id_mesin;
-        $types .= "i";
-    }
-    if (!empty($id_sub_mesin)) {
-        $query .= " AND k.id_sub_mesin = ?";
-        $params[] = $id_sub_mesin;
-        $types .= "i";
-    }
-    if (!empty($cari_komp)) {
-        $query .= " AND (k.nama_bagian LIKE ? OR m.serial_number LIKE ?)";
-        $params[] = "%$cari_komp%";
-        $params[] = "%$cari_komp%";
-        $types .= "ss";
-    }
-    $query .= " ORDER BY k.id DESC";
 
-    $stmt = mysqli_prepare($conn, $query);
-    if (!empty($params)) {
-        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    /* =====================================================
+       FILTER MESIN
+    ====================================================== */
+
+    if ($id_mesin > 0) {
+
+        $query .= "
+            AND sm.id_mesin = ?
+        ";
+
+        $params[] = $id_mesin;
+
+        $types .= "i";
     }
-    mysqli_stmt_execute($stmt);
-    $sql = mysqli_stmt_get_result($stmt);
+
+
+    /* =====================================================
+       FILTER SUB MESIN
+    ====================================================== */
+
+    if ($id_sub_mesin > 0) {
+
+        $query .= "
+            AND k.id_sub_mesin = ?
+        ";
+
+        $params[] = $id_sub_mesin;
+
+        $types .= "i";
+    }
+
+
+    /* =====================================================
+       SEARCH KOMPONEN
+    ====================================================== */
+
+    if ($cari_komp !== '') {
+
+        $search = "%" . $cari_komp . "%";
+
+        $query .= "
+            AND (
+                k.nama_bagian LIKE ?
+                OR k.serial_number LIKE ?
+                OR m.serial_number LIKE ?
+                OR m.nama_mesin LIKE ?
+                OR sm.nama_sub_mesin LIKE ?
+            )
+        ";
+
+        $params[] = $search;
+        $params[] = $search;
+        $params[] = $search;
+        $params[] = $search;
+        $params[] = $search;
+
+        $types .= "sssss";
+    }
+
+
+    /* =====================================================
+       ORDER
+    ====================================================== */
+
+    $query .= "
+        ORDER BY
+            k.id DESC
+    ";
 }
+
+
+/* =========================================================
+   EXECUTE QUERY
+========================================================= */
+
+$stmt = mysqli_prepare(
+    $conn,
+    $query
+);
+
+if (!$stmt) {
+
+    die(
+        "Query laporan gagal dipersiapkan: "
+        . htmlspecialchars(mysqli_error($conn))
+    );
+}
+
+
+/* =========================================================
+   BIND PARAMETER
+========================================================= */
+
+if (!empty($params)) {
+
+    mysqli_stmt_bind_param(
+        $stmt,
+        $types,
+        ...$params
+    );
+}
+
+
+/* =========================================================
+   EXECUTE
+========================================================= */
+
+if (!mysqli_stmt_execute($stmt)) {
+
+    die(
+        "Query laporan gagal dijalankan: "
+        . htmlspecialchars(mysqli_stmt_error($stmt))
+    );
+}
+
+
+$sql =
+    mysqli_stmt_get_result(
+        $stmt
+    );
+
+
+/* =========================================================
+   TOTAL DATA
+========================================================= */
+
+$total_data = $sql
+    ? mysqli_num_rows($sql)
+    : 0;
+
+
+/* =========================================================
+   INCLUDE HEADER
+========================================================= */
+
+include "../template/header.php";
 ?>
+
+
+<style>
+
+/* =========================================================
+   LAPORAN PAGE
+========================================================= */
+
+.laporan-card {
+
+    border: 0;
+
+    border-radius: 18px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 4px 18px rgba(15, 23, 42, .06);
+
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.laporan-header {
+
+    padding: 24px;
+}
+
+
+.laporan-header h2 {
+
+    font-size: 22px;
+
+    font-weight: 700;
+
+    color: #1e293b;
+}
+
+
+.laporan-header p {
+
+    font-size: 13px;
+
+    color: #64748b;
+
+    margin-bottom: 0;
+}
+
+
+/* =========================================================
+   FILTER
+========================================================= */
+
+.filter-card {
+
+    padding: 22px;
+}
+
+
+.filter-card .form-label {
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+    color: #334155;
+
+    margin-bottom: 6px;
+}
+
+
+.filter-card .form-control,
+.filter-card .form-select {
+
+    font-size: 13px;
+
+    min-height: 38px;
+
+    border-color: #e2e8f0;
+}
+
+
+.filter-card .form-control:focus,
+.filter-card .form-select:focus {
+
+    border-color: #0056a6;
+
+    box-shadow:
+        0 0 0 .2rem rgba(0, 86, 166, .10);
+}
+
+
+/* =========================================================
+   TABLE
+========================================================= */
+
+.laporan-table {
+
+    font-size: 13px;
+}
+
+
+.laporan-table thead th {
+
+    background: #f8fafc;
+
+    color: #64748b;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    text-transform: uppercase;
+
+    letter-spacing: .3px;
+
+    white-space: nowrap;
+
+    border-bottom:
+        1px solid #e2e8f0;
+}
+
+
+.laporan-table tbody td {
+
+    vertical-align: middle;
+
+    border-bottom:
+        1px solid #f1f5f9;
+}
+
+
+.laporan-table tbody tr:hover {
+
+    background: #f8fafc;
+}
+
+
+/* =========================================================
+   BADGE
+========================================================= */
+
+.badge-status {
+
+    font-size: 11px;
+
+    padding:
+        6px 10px;
+
+    border-radius: 50px;
+
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   EMPTY
+========================================================= */
+
+.empty-report {
+
+    padding: 60px 20px;
+
+    text-align: center;
+
+    color: #94a3b8;
+}
+
+
+.empty-report i {
+
+    font-size: 45px;
+
+    opacity: .4;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 768px) {
+
+    .laporan-header,
+    .filter-card {
+
+        padding: 16px;
+    }
+
+    .laporan-header h2 {
+
+        font-size: 19px;
+    }
+
+}
+
+</style>
+
 
 <div class="container-fluid p-0">
 
-  <!-- Header Card Terpisah (Design System Garudafood) -->
-  <div class="card border-0 shadow-sm rounded-4 bg-white p-4 mb-4">
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h2 class="fw-bold text-dark m-0">Laporan & Rekapitulasi</h2>
-        <p class="text-muted small m-0 mt-1">Cetak laporan riwayat pemeliharaan dan inventaris mesin per kategori</p>
-      </div>
-    </div>
-  </div>
 
-  <!-- Filter Card -->
-  <div class="card border-0 shadow-sm rounded-4 bg-white p-4 mb-4">
-    <form method="GET" class="row g-3 align-items-end">
-      <div class="col-md-2">
-        <label class="form-label small fw-semibold text-dark">Jenis Laporan</label>
-        <select name="jenis" class="form-select border-light-subtle rounded-3" onchange="this.form.submit()">
-          <option value="maintenance" <?= $jenis == 'maintenance' ? 'selected' : '' ?>>Riwayat Maintenance</option>
-          <option value="komponen" <?= $jenis == 'komponen' ? 'selected' : '' ?>>Inventaris Komponen</option>
-        </select>
-      </div>
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
 
-      <!-- Filter Mesin -->
-      <div class="col-md-2">
-        <label class="form-label small fw-semibold text-dark">Filter Mesin</label>
-        <select name="id_mesin" class="form-select border-light-subtle rounded-3">
-          <option value="">-- Semua Mesin --</option>
-          <?php
-          $q_mesin = mysqli_query($conn, "SELECT id, nama_mesin FROM mesin ORDER BY nama_mesin ASC");
-          while($m = mysqli_fetch_assoc($q_mesin)):
-              $sel = ($id_mesin == $m['id']) ? 'selected' : '';
-          ?>
-              <option value="<?= $m['id'] ?>" <?= $sel ?>><?= htmlspecialchars($m['nama_mesin']) ?></option>
-          <?php endwhile; ?>
-        </select>
-      </div>
+    <div class="card laporan-card laporan-header mb-4">
 
-      <!-- Filter Sub Mesin -->
-      <div class="col-md-2">
-        <label class="form-label small fw-semibold text-dark">Filter Sub Mesin</label>
-        <select name="id_sub_mesin" class="form-select border-light-subtle rounded-3">
-          <option value="">-- Semua Sub Mesin --</option>
-          <?php 
-          $q_sub = mysqli_query($conn, "SELECT id, nama_sub_mesin FROM sub_mesin ORDER BY nama_sub_mesin ASC");
-          while($s = mysqli_fetch_assoc($q_sub)):
-              $sel = ($id_sub_mesin == $s['id']) ? 'selected' : '';
-          ?>
-              <option value="<?= $s['id'] ?>" <?= $sel ?>><?= htmlspecialchars($s['nama_sub_mesin']) ?></option>
-          <?php endwhile; ?>
-        </select>
-      </div>
+        <div
+            class="d-flex
+                   justify-content-between
+                   align-items-center
+                   flex-wrap
+                   gap-3"
+        >
 
-      <!-- Cari Komponen -->
-      <div class="col-md-2">
-        <label class="form-label small fw-semibold text-dark">Cari Komponen</label>
-        <input type="text" name="cari_komponen" class="form-control border-light-subtle rounded-3" value="<?= htmlspecialchars($cari_komp) ?>" placeholder="Nama bagian / SN...">
-      </div>
+            <div>
 
-      <?php if ($jenis == 'maintenance') : ?>
-        <div class="col-md-2">
-          <label class="form-label small fw-semibold text-dark">Dari Tanggal</label>
-          <input type="date" name="tgl_mulai" class="form-control border-light-subtle rounded-3" value="<?= htmlspecialchars($tgl_mulai) ?>">
+                <h2 class="m-0">
+
+                    <i
+                        class="bi bi-file-earmark-bar-graph me-2"
+                        style="color:#0056a6;"
+                    ></i>
+
+                    Laporan & Rekapitulasi
+
+                </h2>
+
+                <p class="mt-1">
+
+                    Cetak laporan riwayat pemeliharaan
+                    dan inventaris komponen mesin.
+
+                </p>
+
+            </div>
+
+
+            <div>
+
+                <span
+                    class="badge rounded-pill px-3 py-2"
+                    style="
+                        background:#eef6ff;
+                        color:#0056a6;
+                        border:1px solid #d7eaff;
+                    "
+                >
+
+                    <i class="bi bi-database me-1"></i>
+
+                    <?= number_format($total_data) ?>
+                    Data
+
+                </span>
+
+            </div>
+
         </div>
-        <div class="col-md-2">
-          <label class="form-label small fw-semibold text-dark">Sampai Tanggal</label>
-          <input type="date" name="tgl_selesai" class="form-control border-light-subtle rounded-3" value="<?= htmlspecialchars($tgl_selesai) ?>">
+
+    </div>
+
+
+
+    <!-- =====================================================
+         FILTER CARD
+    ====================================================== -->
+
+    <div class="card laporan-card filter-card mb-4">
+
+        <form
+            method="GET"
+            id="formFilter"
+        >
+
+            <div class="row g-3">
+
+
+                <!-- =================================================
+                     JENIS LAPORAN
+                ================================================== -->
+
+                <div class="col-md-3">
+
+                    <label class="form-label">
+
+                        Jenis Laporan
+
+                    </label>
+
+                    <select
+                        name="jenis"
+                        id="jenis"
+                        class="form-select rounded-3"
+                        onchange="changeJenisLaporan()"
+                    >
+
+                        <option
+                            value="maintenance"
+                            <?= $jenis === 'maintenance'
+                                ? 'selected'
+                                : '' ?>
+                        >
+
+                            Riwayat Maintenance
+
+                        </option>
+
+
+                        <option
+                            value="komponen"
+                            <?= $jenis === 'komponen'
+                                ? 'selected'
+                                : '' ?>
+                        >
+
+                            Inventaris Komponen
+
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     MESIN
+                ================================================== -->
+
+                <div class="col-md-3">
+
+                    <label class="form-label">
+
+                        Filter Mesin
+
+                    </label>
+
+                    <select
+                        name="id_mesin"
+                        id="id_mesin"
+                        class="form-select rounded-3"
+                        onchange="loadSubMesin()"
+                    >
+
+                        <option value="">
+
+                            -- Semua Mesin --
+
+                        </option>
+
+
+                        <?php
+                        if ($q_mesin) :
+
+                            while (
+                                $m = mysqli_fetch_assoc(
+                                    $q_mesin
+                                )
+                            ) :
+
+                                $selected =
+                                    (
+                                        $id_mesin ==
+                                        $m['id']
+                                    )
+                                    ? 'selected'
+                                    : '';
+                        ?>
+
+                            <option
+                                value="<?= (int)$m['id'] ?>"
+                                <?= $selected ?>
+                            >
+
+                                <?= htmlspecialchars(
+                                    $m['nama_mesin']
+                                ) ?>
+
+                                <?php if (
+                                    !empty(
+                                        $m['serial_number']
+                                    )
+                                ) : ?>
+
+                                    -
+                                    <?= htmlspecialchars(
+                                        $m['serial_number']
+                                    ) ?>
+
+                                <?php endif; ?>
+
+                            </option>
+
+                        <?php
+                            endwhile;
+                        endif;
+                        ?>
+
+                    </select>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     SUB MESIN
+                ================================================== -->
+
+                <div class="col-md-3">
+
+                    <label class="form-label">
+
+                        Filter Sub Mesin
+
+                    </label>
+
+                    <select
+                        name="id_sub_mesin"
+                        id="id_sub_mesin"
+                        class="form-select rounded-3"
+                        <?= $id_mesin <= 0
+                            ? 'disabled'
+                            : '' ?>
+                    >
+
+                        <option value="">
+
+                            <?=
+                                $id_mesin > 0
+                                ? '-- Semua Sub Mesin --'
+                                : '-- Pilih Mesin Dahulu --'
+                            ?>
+
+                        </option>
+
+
+                        <?php
+
+                        if (
+                            $q_sub_mesin &&
+                            $id_mesin > 0
+                        ) :
+
+                            while (
+                                $s =
+                                mysqli_fetch_assoc(
+                                    $q_sub_mesin
+                                )
+                            ) :
+
+                                $selected =
+                                    (
+                                        $id_sub_mesin ==
+                                        $s['id']
+                                    )
+                                    ? 'selected'
+                                    : '';
+
+                        ?>
+
+                            <option
+                                value="<?= (int)$s['id'] ?>"
+                                <?= $selected ?>
+                            >
+
+                                <?= htmlspecialchars(
+                                    $s['nama_sub_mesin']
+                                ) ?>
+
+                            </option>
+
+                        <?php
+                            endwhile;
+                        endif;
+                        ?>
+
+                    </select>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     SEARCH
+                ================================================== -->
+
+                <div class="col-md-3">
+
+                    <label class="form-label">
+
+                        Cari Komponen
+
+                    </label>
+
+                    <input
+                        type="text"
+                        name="cari_komponen"
+                        class="form-control rounded-3"
+                        value="<?= htmlspecialchars(
+                            $cari_komp
+                        ) ?>"
+                        placeholder="Nama komponen / SN..."
+                    >
+
+                </div>
+
+
+
+                <!-- =================================================
+                     TANGGAL
+                ================================================== -->
+
+                <?php if (
+                    $jenis === 'maintenance'
+                ) : ?>
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+
+                            Dari Tanggal
+
+                        </label>
+
+                        <input
+                            type="date"
+                            name="tgl_mulai"
+                            class="form-control rounded-3"
+                            value="<?= htmlspecialchars(
+                                $tgl_mulai
+                            ) ?>"
+                        >
+
+                    </div>
+
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+
+                            Sampai Tanggal
+
+                        </label>
+
+                        <input
+                            type="date"
+                            name="tgl_selesai"
+                            class="form-control rounded-3"
+                            value="<?= htmlspecialchars(
+                                $tgl_selesai
+                            ) ?>"
+                        >
+
+                    </div>
+
+                <?php endif; ?>
+
+
+            </div>
+
+
+
+            <!-- =====================================================
+                 BUTTON
+            ====================================================== -->
+
+            <div
+                class="
+                    d-flex
+                    flex-wrap
+                    align-items-center
+                    gap-2
+                    mt-4
+                    pt-3
+                    border-top
+                "
+            >
+
+
+                <!-- FILTER -->
+
+                <button
+                    type="submit"
+                    class="btn btn-primary rounded-3 fw-semibold px-4"
+                    style="
+                        background:#0056a6;
+                        border-color:#0056a6;
+                    "
+                >
+
+                    <i class="bi bi-funnel me-1"></i>
+
+                    Filter
+
+                </button>
+
+
+
+                <!-- RESET -->
+
+                <a
+                    href="index.php"
+                    class="btn btn-light border rounded-3 fw-semibold px-4"
+                >
+
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>
+
+                    Reset
+
+                </a>
+
+
+
+                <!-- SPACER -->
+
+                <div class="ms-auto d-flex gap-2 flex-wrap">
+
+
+                    <!-- PDF -->
+
+                    <a
+                        href="cetak.php?jenis=<?= urlencode($jenis) ?>&tgl_mulai=<?= urlencode($tgl_mulai) ?>&tgl_selesai=<?= urlencode($tgl_selesai) ?>&id_mesin=<?= urlencode($id_mesin) ?>&id_sub_mesin=<?= urlencode($id_sub_mesin) ?>&cari_komponen=<?= urlencode($cari_komp) ?>"
+                        target="_blank"
+                        class="btn btn-outline-danger rounded-3 fw-semibold px-3"
+                    >
+
+                        <i class="bi bi-printer me-1"></i>
+
+                        Cetak PDF
+
+                    </a>
+
+
+
+                    <!-- EXCEL -->
+
+                    <a
+                        href="export_excel.php?jenis=<?= urlencode($jenis) ?>&tgl_mulai=<?= urlencode($tgl_mulai) ?>&tgl_selesai=<?= urlencode($tgl_selesai) ?>&id_mesin=<?= urlencode($id_mesin) ?>&id_sub_mesin=<?= urlencode($id_sub_mesin) ?>&cari_komponen=<?= urlencode($cari_komp) ?>"
+                        class="btn btn-success rounded-3 fw-semibold px-3"
+                        style="
+                            background:#198754;
+                            border-color:#198754;
+                        "
+                    >
+
+                        <i class="bi bi-file-earmark-excel me-1"></i>
+
+                        Excel (.xls)
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         PREVIEW LAPORAN
+    ====================================================== -->
+
+    <div class="card laporan-card overflow-hidden">
+
+
+        <!-- =================================================
+             TABLE HEADER
+        ================================================== -->
+
+        <div
+            class="
+                p-4
+                border-bottom
+                d-flex
+                justify-content-between
+                align-items-center
+                flex-wrap
+                gap-2
+            "
+        >
+
+            <div>
+
+                <h5
+                    class="fw-bold m-0"
+                    style="color:#0056a6;"
+                >
+
+                    <i class="bi bi-file-earmark-text me-2"></i>
+
+                    Preview Data Laporan
+
+                </h5>
+
+                <small class="text-muted">
+
+                    <?=
+                        $jenis === 'maintenance'
+                        ? 'Riwayat Maintenance'
+                        : 'Inventaris Komponen'
+                    ?>
+
+                </small>
+
+            </div>
+
+
+            <span
+                class="badge rounded-pill px-3 py-2"
+                style="
+                    background:#f1f5f9;
+                    color:#0056a6;
+                    border:1px solid #e2e8f0;
+                "
+            >
+
+                Total:
+                <?= number_format($total_data) ?>
+                Data
+
+            </span>
+
         </div>
-      <?php endif; ?>
 
-      <div class="col-md-12 d-flex gap-2 mt-3">
-        <button type="submit" class="btn btn-primary rounded-3 fw-semibold px-4" style="background-color: #0056a6; border: none;">
-          <i class="bi bi-funnel me-1"></i> Filter
-        </button>
-        
-        <a href="index.php" class="btn btn-light border rounded-3 fw-semibold px-3">
-          Reset
-        </a>
 
-        <!-- Tombol Cetak / PDF -->
-        <a href="cetak.php?jenis=<?= urlencode($jenis) ?>&tgl_mulai=<?= urlencode($tgl_mulai) ?>&tgl_selesai=<?= urlencode($tgl_selesai) ?>&id_mesin=<?= urlencode($id_mesin) ?>&id_sub_mesin=<?= urlencode($id_sub_mesin) ?>&cari_komponen=<?= urlencode($cari_komp) ?>" target="_blank" class="btn btn-outline-danger rounded-3 fw-semibold px-3 ms-auto">
-          <i class="bi bi-printer me-1"></i> Cetak PDF
-        </a>
 
-        <!-- Tombol Export Excel -->
-        <a href="export_excel.php?jenis=<?= urlencode($jenis) ?>&tgl_mulai=<?= urlencode($tgl_mulai) ?>&tgl_selesai=<?= urlencode($tgl_selesai) ?>&id_mesin=<?= urlencode($id_mesin) ?>&id_sub_mesin=<?= urlencode($id_sub_mesin) ?>&cari_komponen=<?= urlencode($cari_komp) ?>" class="btn btn-success rounded-3 fw-semibold px-3" style="background-color: #198754; border: none;">
-          <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xls)
-        </a>
-      </div>
-    </form>
-  </div>
+        <!-- =================================================
+             TABLE
+        ================================================== -->
 
-  <!-- Preview Table Card -->
-  <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
-    <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
-      <h5 class="fw-bold text-primary m-0 d-flex align-items-center" style="color: #0056a6 !important;">
-        <i class="bi bi-file-earmark-text me-2"></i> Preview Data Laporan (<?= ucfirst($jenis) ?>)
-      </h5>
-      <span class="badge bg-light text-primary border rounded-pill px-3 py-2 fw-semibold">Total: <?= $sql ? mysqli_num_rows($sql) : 0 ?> Data</span>
-    </div>
+        <div class="table-responsive">
 
-    <div class="table-responsive p-3">
-      <?php if ($jenis == 'maintenance') : ?>
-        <table class="table table-hover align-middle mb-0">
-          <thead class="bg-light">
-            <tr class="text-muted small text-uppercase">
-              <th width="40">NO</th>
-              <th width="110">TANGGAL</th>
-              <th>MESIN</th>
-              <th>KOMPONEN</th>
-              <th>DETAIL PERBAIKAN / TINDAKAN</th>
-              <th>TEKNISI</th>
-              <th width="140" class="text-center">STATUS & AKSI</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php
-            $no = 1;
-            if ($sql && mysqli_num_rows($sql) > 0) :
-              while ($d = mysqli_fetch_assoc($sql)) :
-                $badgeStatus = 'bg-success';
-                if (($d['status'] ?? '') == 'Proses') {
-                    $badgeStatus = 'bg-warning text-dark';
-                } elseif (($d['status'] ?? '') == 'Pending') {
-                    $badgeStatus = 'bg-danger';
-                }
-            ?>
-                <tr>
-                  <td class="text-secondary"><?= $no++ ?></td>
-                  <td><span class="fw-semibold text-dark"><?= !empty($d['tanggal']) ? date('d/m/Y', strtotime($d['tanggal'])) : '-' ?></span></td>
-                  <td><span class="fw-semibold text-primary" style="color: #0056a6 !important;"><?= htmlspecialchars($d['nama_mesin'] ?? '-') ?></span></td>
-                  <td>
-                    <strong class="text-dark d-block"><?= htmlspecialchars($d['nama_bagian'] ?? '-') ?></strong>
-                    <small class="text-muted">SN: <?= htmlspecialchars($d['serial_number'] ?? '-') ?></small>
-                  </td>
-                  <td><small class="text-dark"><?= htmlspecialchars($d['tindakan'] ?? '-') ?></small></td>
-                  <td><small class="text-muted"><i class="bi bi-person me-1"></i><?= htmlspecialchars($d['teknisi'] ?? '-') ?></small></td>
-                  <td class="text-center">
-                    <div class="d-flex justify-content-center align-items-center gap-1">
-                      <span class="badge <?= $badgeStatus ?> px-2 py-2 rounded-pill"><?= htmlspecialchars($d['status'] ?? '-') ?></span>
-                      <?php if (!empty($d['id'])) : ?>
-                        <a href="cetak.php?jenis=single_maintenance&id=<?= $d['id'] ?>" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1" title="Download / Cetak Per Baris">
-                          <i class="bi bi-download"></i>
-                        </a>
-                      <?php endif; ?>
-                    </div>
-                  </td>
-                </tr>
-              <?php endwhile;
-            else : ?>
-              <tr>
-                <td colspan="7" class="text-center text-muted py-5">
-                  <i class="bi bi-inbox fs-1 text-secondary opacity-50 d-block mb-2"></i>
-                  Data tidak ditemukan berdasarkan filter tersebut.
-                </td>
-              </tr>
+            <?php if (
+                $jenis === 'maintenance'
+            ) : ?>
+
+
+                <!-- =========================================
+                     TABLE MAINTENANCE
+                ========================================== -->
+
+                <table
+                    class="
+                        table
+                        table-hover
+                        align-middle
+                        mb-0
+                        laporan-table
+                    "
+                >
+
+                    <thead>
+
+                        <tr>
+
+                            <th
+                                width="50"
+                                class="text-center"
+                            >
+                                NO
+                            </th>
+
+                            <th width="110">
+
+                                TANGGAL
+
+                            </th>
+
+                            <th>
+
+                                MESIN
+
+                            </th>
+
+                            <th>
+
+                                SUB MESIN
+
+                            </th>
+
+                            <th>
+
+                                KOMPONEN
+
+                            </th>
+
+                            <th>
+
+                                DETAIL PERBAIKAN / TINDAKAN
+
+                            </th>
+
+                            <th>
+
+                                TEKNISI
+
+                            </th>
+
+                            <th
+                                width="150"
+                                class="text-center"
+                            >
+
+                                STATUS & AKSI
+
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        <?php
+
+                        $no = 1;
+
+                        if (
+                            $sql &&
+                            mysqli_num_rows($sql) > 0
+                        ) :
+
+                            while (
+                                $d =
+                                mysqli_fetch_assoc($sql)
+                            ) :
+
+                                $status =
+                                    $d['status'] ?? '-';
+
+
+                                if (
+                                    strtolower(
+                                        $status
+                                    ) === 'proses'
+                                ) {
+
+                                    $badgeStatus =
+                                        'bg-warning text-dark';
+
+                                } elseif (
+                                    strtolower(
+                                        $status
+                                    ) === 'pending'
+                                ) {
+
+                                    $badgeStatus =
+                                        'bg-danger';
+
+                                } elseif (
+                                    strtolower(
+                                        $status
+                                    ) === 'selesai'
+                                ) {
+
+                                    $badgeStatus =
+                                        'bg-success';
+
+                                } else {
+
+                                    $badgeStatus =
+                                        'bg-secondary';
+                                }
+
+                        ?>
+
+                            <tr>
+
+
+                                <!-- NO -->
+
+                                <td
+                                    class="text-center text-secondary"
+                                >
+
+                                    <?= $no++ ?>
+
+                                </td>
+
+
+
+                                <!-- TANGGAL -->
+
+                                <td>
+
+                                    <span
+                                        class="fw-semibold text-dark"
+                                    >
+
+                                        <?php
+                                        if (
+                                            !empty(
+                                                $d['tanggal']
+                                            )
+                                        ) {
+
+                                            echo date(
+                                                'd/m/Y',
+                                                strtotime(
+                                                    $d['tanggal']
+                                                )
+                                            );
+
+                                        } else {
+
+                                            echo '-';
+                                        }
+                                        ?>
+
+                                    </span>
+
+                                </td>
+
+
+
+                                <!-- MESIN -->
+
+                                <td>
+
+                                    <strong
+                                        style="
+                                            color:#0056a6;
+                                        "
+                                    >
+
+                                        <?= htmlspecialchars(
+                                            $d['nama_mesin']
+                                            ?? '-'
+                                        ) ?>
+
+                                    </strong>
+
+
+                                    <small
+                                        class="
+                                            d-block
+                                            text-muted
+                                        "
+                                    >
+
+                                        SN Mesin:
+                                        <?= htmlspecialchars(
+                                            $d[
+                                                'serial_number_mesin'
+                                            ]
+                                            ?? '-'
+                                        ) ?>
+
+                                    </small>
+
+                                </td>
+
+
+
+                                <!-- SUB MESIN -->
+
+                                <td>
+
+                                    <?= htmlspecialchars(
+                                        $d[
+                                            'nama_sub_mesin'
+                                        ]
+                                        ?? '-'
+                                    ) ?>
+
+                                </td>
+
+
+
+                                <!-- KOMPONEN -->
+
+                                <td>
+
+                                    <strong
+                                        class="
+                                            text-dark
+                                            d-block
+                                        "
+                                    >
+
+                                        <?= htmlspecialchars(
+                                            $d[
+                                                'nama_bagian'
+                                            ]
+                                            ?? '-'
+                                        ) ?>
+
+                                    </strong>
+
+
+                                    <small
+                                        class="
+                                            text-muted
+                                        "
+                                    >
+
+                                        SN:
+                                        <?= htmlspecialchars(
+                                            $d[
+                                                'serial_number_komponen'
+                                            ]
+                                            ?? '-'
+                                        ) ?>
+
+                                    </small>
+
+                                </td>
+
+
+
+                                <!-- TINDAKAN -->
+
+                                <td>
+
+                                    <small
+                                        class="text-dark"
+                                    >
+
+                                        <?= htmlspecialchars(
+                                            $d[
+                                                'tindakan'
+                                            ]
+                                            ?? '-'
+                                        ) ?>
+
+                                    </small>
+
+                                </td>
+
+
+
+                                <!-- TEKNISI -->
+
+                                <td>
+
+                                    <small
+                                        class="text-muted"
+                                    >
+
+                                        <i
+                                            class="
+                                                bi
+                                                bi-person
+                                                me-1
+                                            "
+                                        ></i>
+
+                                        <?= htmlspecialchars(
+                                            $d[
+                                                'teknisi'
+                                            ]
+                                            ?? '-'
+                                        ) ?>
+
+                                    </small>
+
+                                </td>
+
+
+
+                                <!-- STATUS -->
+
+                                <td
+                                    class="text-center"
+                                >
+
+                                    <div
+                                        class="
+                                            d-flex
+                                            justify-content-center
+                                            align-items-center
+                                            gap-1
+                                        "
+                                    >
+
+                                        <span
+                                            class="
+                                                badge
+                                                <?= $badgeStatus ?>
+                                                badge-status
+                                            "
+                                        >
+
+                                            <?= htmlspecialchars(
+                                                $status
+                                            ) ?>
+
+                                        </span>
+
+
+                                        <?php
+                                        if (
+                                            !empty(
+                                                $d['id']
+                                            )
+                                        ) :
+                                        ?>
+
+                                            <a
+                                                href="cetak.php?jenis=single_maintenance&id=<?= (int)$d['id'] ?>"
+                                                target="_blank"
+                                                class="
+                                                    btn
+                                                    btn-sm
+                                                    btn-outline-secondary
+                                                    rounded-pill
+                                                    px-2
+                                                "
+                                                title="Cetak data"
+                                            >
+
+                                                <i
+                                                    class="
+                                                        bi
+                                                        bi-printer
+                                                    "
+                                                ></i>
+
+                                            </a>
+
+                                        <?php endif; ?>
+
+                                    </div>
+
+                                </td>
+
+
+                            </tr>
+
+                        <?php
+
+                            endwhile;
+
+                        else :
+
+                        ?>
+
+                            <tr>
+
+                                <td
+                                    colspan="8"
+                                    class="empty-report"
+                                >
+
+                                    <i
+                                        class="
+                                            bi
+                                            bi-inbox
+                                            d-block
+                                            mb-3
+                                        "
+                                    ></i>
+
+                                    <strong
+                                        class="
+                                            d-block
+                                            text-secondary
+                                            mb-1
+                                        "
+                                    >
+
+                                        Data tidak ditemukan
+
+                                    </strong>
+
+                                    <small>
+
+                                        Tidak ada riwayat
+                                        maintenance yang
+                                        sesuai dengan filter.
+
+                                    </small>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endif; ?>
+
+                    </tbody>
+
+                </table>
+
+
+
+            <?php else : ?>
+
+
+                <!-- =========================================
+                     TABLE KOMPONEN
+                ========================================== -->
+
+                <table
+                    class="
+                        table
+                        table-hover
+                        align-middle
+                        mb-0
+                        laporan-table
+                    "
+                >
+
+                    <thead>
+
+                        <tr>
+
+                            <th
+                                width="50"
+                                class="text-center"
+                            >
+
+                                NO
+
+                            </th>
+
+                            <th>
+
+                                NAMA KOMPONEN
+
+                            </th>
+
+                            <th>
+
+                                SN KOMPONEN
+
+                            </th>
+
+                            <th>
+
+                                MESIN INDUK
+
+                            </th>
+
+                            <th>
+
+                                SN MESIN
+
+                            </th>
+
+                            <th>
+
+                                SUB MESIN
+
+                            </th>
+
+                            <th
+                                width="160"
+                                class="text-center"
+                            >
+
+                                KONDISI & AKSI
+
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        <?php
+
+                        $no = 1;
+
+                        if (
+                            $sql &&
+                            mysqli_num_rows($sql) > 0
+                        ) :
+
+                            while (
+                                $d =
+                                mysqli_fetch_assoc($sql)
+                            ) :
+
+                                $kondisi =
+                                    $d['kondisi']
+                                    ?? 'Baik';
+
+
+                                if (
+                                    $kondisi === 'Baik'
+                                ) {
+
+                                    $badgeKondisi =
+                                        'bg-success';
+
+                                } elseif (
+                                    $kondisi ===
+                                    'Perlu Pemeriksaan'
+                                ) {
+
+                                    $badgeKondisi =
+                                        'bg-warning text-dark';
+
+                                } elseif (
+                                    $kondisi ===
+                                    'Dalam Perbaikan'
+                                ) {
+
+                                    $badgeKondisi =
+                                        'bg-warning text-dark';
+
+                                } elseif (
+                                    $kondisi === 'Rusak'
+                                ) {
+
+                                    $badgeKondisi =
+                                        'bg-danger';
+
+                                } else {
+
+                                    $badgeKondisi =
+                                        'bg-secondary';
+                                }
+
+                        ?>
+
+                            <tr>
+
+
+                                <!-- NO -->
+
+                                <td
+                                    class="text-center text-secondary"
+                                >
+
+                                    <?= $no++ ?>
+
+                                </td>
+
+
+
+                                <!-- KOMPONEN -->
+
+                                <td>
+
+                                    <strong
+                                        class="text-dark"
+                                    >
+
+                                        <?= htmlspecialchars(
+                                            $d[
+                                                'nama_bagian'
+                                            ]
+                                            ?? '-'
+                                        ) ?>
+
+                                    </strong>
+
+
+                                    <?php
+                                    if (
+                                        !empty(
+                                            $d['brand']
+                                        ) ||
+                                        !empty(
+                                            $d['tipe']
+                                        )
+                                    ) :
+                                    ?>
+
+                                        <small
+                                            class="
+                                                d-block
+                                                text-muted
+                                            "
+                                        >
+
+                                            <?= htmlspecialchars(
+                                                $d[
+                                                    'brand'
+                                                ]
+                                                ?? ''
+                                            ) ?>
+
+                                            <?php
+                                            if (
+                                                !empty(
+                                                    $d[
+                                                        'brand'
+                                                    ]
+                                                ) &&
+                                                !empty(
+                                                    $d[
+                                                        'tipe'
+                                                    ]
+                                                )
+                                            ) :
+                                            ?>
+
+                                                -
+                                            <?php endif; ?>
+
+                                            <?= htmlspecialchars(
+                                                $d[
+                                                    'tipe'
+                                                ]
+                                                ?? ''
+                                            ) ?>
+
+                                        </small>
+
+                                    <?php endif; ?>
+
+                                </td>
+
+
+
+                                <!-- SN KOMPONEN -->
+
+                                <td>
+
+                                    <span
+                                        class="
+                                            badge
+                                            bg-light
+                                            text-dark
+                                            border
+                                            fw-semibold
+                                        "
+                                    >
+
+                                        <?= htmlspecialchars(
+                                            $d[
+                                                'serial_number'
+                                            ]
+                                            ?? '-'
+                                        ) ?>
+
+                                    </span>
+
+                                </td>
+
+
+
+                                <!-- MESIN -->
+
+                                <td>
+
+                                    <span
+                                        class="fw-semibold"
+                                    >
+
+                                        <?= htmlspecialchars(
+                                            $d[
+                                                'nama_mesin'
+                                            ]
+                                            ?? '-'
+                                        ) ?>
+
+                                    </span>
+
+                                </td>
+
+
+
+                                <!-- SN MESIN -->
+
+                                <td>
+
+                                    <small
+                                        class="text-muted"
+                                    >
+
+                                        <?= htmlspecialchars(
+                                            $d[
+                                                'serial_number_mesin'
+                                            ]
+                                            ?? '-'
+                                        ) ?>
+
+                                    </small>
+
+                                </td>
+
+
+
+                                <!-- SUB MESIN -->
+
+                                <td>
+
+                                    <?= htmlspecialchars(
+                                        $d[
+                                            'nama_sub_mesin'
+                                        ]
+                                        ?? '-'
+                                    ) ?>
+
+                                </td>
+
+
+
+                                <!-- KONDISI -->
+
+                                <td
+                                    class="text-center"
+                                >
+
+                                    <div
+                                        class="
+                                            d-flex
+                                            justify-content-center
+                                            align-items-center
+                                            gap-1
+                                        "
+                                    >
+
+                                        <span
+                                            class="
+                                                badge
+                                                <?= $badgeKondisi ?>
+                                                badge-status
+                                            "
+                                        >
+
+                                            <?= htmlspecialchars(
+                                                $kondisi
+                                            ) ?>
+
+                                        </span>
+
+
+                                        <?php
+                                        if (
+                                            !empty(
+                                                $d['id']
+                                            )
+                                        ) :
+                                        ?>
+
+                                            <a
+                                                href="cetak.php?jenis=single_komponen&id=<?= (int)$d['id'] ?>"
+                                                target="_blank"
+                                                class="
+                                                    btn
+                                                    btn-sm
+                                                    btn-outline-secondary
+                                                    rounded-pill
+                                                    px-2
+                                                "
+                                                title="Cetak data"
+                                            >
+
+                                                <i
+                                                    class="
+                                                        bi
+                                                        bi-printer
+                                                    "
+                                                ></i>
+
+                                            </a>
+
+                                        <?php endif; ?>
+
+                                    </div>
+
+                                </td>
+
+
+                            </tr>
+
+                        <?php
+
+                            endwhile;
+
+                        else :
+
+                        ?>
+
+                            <tr>
+
+                                <td
+                                    colspan="7"
+                                    class="empty-report"
+                                >
+
+                                    <i
+                                        class="
+                                            bi
+                                            bi-inbox
+                                            d-block
+                                            mb-3
+                                        "
+                                    ></i>
+
+                                    <strong
+                                        class="
+                                            d-block
+                                            text-secondary
+                                            mb-1
+                                        "
+                                    >
+
+                                        Data komponen tidak ditemukan
+
+                                    </strong>
+
+                                    <small>
+
+                                        Tidak ada komponen
+                                        yang sesuai dengan
+                                        filter.
+
+                                    </small>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endif; ?>
+
+                    </tbody>
+
+                </table>
+
             <?php endif; ?>
-          </tbody>
-        </table>
 
-      <?php else : ?>
-        <table class="table table-hover align-middle mb-0">
-          <thead class="bg-light">
-            <tr class="text-muted small text-uppercase">
-              <th width="40">NO</th>
-              <th>NAMA KOMPONEN</th>
-              <th>SN MESIN</th>
-              <th>MESIN INDUK</th>
-              <th>SUB MESIN</th>
-              <th width="160" class="text-center">KONDISI & AKSI</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php
-            $no = 1;
-            if ($sql && mysqli_num_rows($sql) > 0) :
-              while ($d = mysqli_fetch_assoc($sql)) :
-                $kondisi = $d['kondisi'] ?? 'Baik';
-                $badgeKondisi = ($kondisi == 'Baik') ? 'bg-success' : (($kondisi == 'Perlu Pemeriksaan') ? 'bg-warning text-dark' : 'bg-danger');
-            ?>
-                <tr>
-                  <td class="text-secondary"><?= $no++ ?></td>
-                  <td><strong class="text-dark"><?= htmlspecialchars($d['nama_bagian'] ?? '-') ?></strong></td>
-                  <td><span class="badge bg-light text-dark border fw-semibold"><?= htmlspecialchars($d['serial_number'] ?? '-') ?></span></td>
-                  <td><?= htmlspecialchars($d['nama_mesin'] ?? '-') ?></td>
-                  <td><?= htmlspecialchars($d['nama_sub_mesin'] ?? '-') ?></td>
-                  <td class="text-center">
-                    <div class="d-flex justify-content-center align-items-center gap-1">
-                      <span class="badge <?= $badgeKondisi ?> px-2 py-2 rounded-pill"><?= htmlspecialchars($kondisi) ?></span>
-                      <?php if (!empty($d['id'])) : ?>
-                        <a href="cetak.php?jenis=single_komponen&id=<?= $d['id'] ?>" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1" title="Download / Cetak Per Baris">
-                          <i class="bi bi-download"></i>
-                        </a>
-                      <?php endif; ?>
-                    </div>
-                  </td>
-                </tr>
-              <?php endwhile;
-            else : ?>
-              <tr>
-                <td colspan="6" class="text-center text-muted py-5">
-                  <i class="bi bi-inbox fs-1 text-secondary opacity-50 d-block mb-2"></i>
-                  Data komponen kosong.
-                </td>
-              </tr>
-            <?php endif; ?>
-          </tbody>
-        </table>
-      <?php endif; ?>
+        </div>
+
     </div>
-  </div>
 
 </div>
 
-<?php 
-if (isset($stmt)) {
-    mysqli_stmt_close($stmt);
+
+
+<script>
+
+/* =========================================================
+   LOAD SUB MESIN BERDASARKAN MESIN
+========================================================= */
+
+function loadSubMesin(
+    selectedSubMesin = ''
+) {
+
+    const mesinSelect =
+        document.getElementById(
+            'id_mesin'
+        );
+
+    const subSelect =
+        document.getElementById(
+            'id_sub_mesin'
+        );
+
+
+    if (!mesinSelect || !subSelect) {
+        return;
+    }
+
+
+    const idMesin =
+        mesinSelect.value;
+
+
+    /* =====================================================
+       RESET SUB MESIN
+    ====================================================== */
+
+    subSelect.innerHTML =
+        '<option value="">-- Memuat Sub Mesin --</option>';
+
+    subSelect.disabled = true;
+
+
+    /* =====================================================
+       JIKA SEMUA MESIN
+    ====================================================== */
+
+    if (!idMesin) {
+
+        subSelect.innerHTML =
+            '<option value="">-- Pilih Mesin Dahulu --</option>';
+
+        subSelect.disabled = true;
+
+        return;
+    }
+
+
+    /* =====================================================
+       FETCH
+    ====================================================== */
+
+    fetch(
+        'get_sub_mesin.php?id_mesin=' +
+        encodeURIComponent(
+            idMesin
+        )
+    )
+
+    .then(function(response) {
+
+        if (!response.ok) {
+
+            throw new Error(
+                'HTTP error ' +
+                response.status
+            );
+        }
+
+        return response.text();
+    })
+
+    .then(function(data) {
+
+        /*
+         * Endpoint get_sub_mesin.php
+         * diasumsikan mengembalikan:
+         *
+         * <option value="">-- Pilih Sub Mesin --</option>
+         * <option value="1">Sub Mesin A</option>
+         *
+         * sehingga langsung dimasukkan ke select.
+         */
+
+        subSelect.innerHTML =
+            data;
+
+
+        subSelect.disabled =
+            false;
+
+
+        /* =================================================
+           KEMBALIKAN PILIHAN SEBELUMNYA
+        ================================================== */
+
+        if (
+            selectedSubMesin !== ''
+        ) {
+
+            subSelect.value =
+                selectedSubMesin;
+
+        }
+
+    })
+
+    .catch(function(error) {
+
+        console.error(
+            'Gagal memuat Sub Mesin:',
+            error
+        );
+
+
+        subSelect.innerHTML =
+            '<option value="">-- Gagal memuat Sub Mesin --</option>';
+
+        subSelect.disabled =
+            false;
+    });
+
 }
-include "../template/footer.php"; 
+
+
+/* =========================================================
+   GANTI JENIS LAPORAN
+========================================================= */
+
+function changeJenisLaporan() {
+
+    const jenis =
+        document.getElementById(
+            'jenis'
+        ).value;
+
+
+    /*
+     * Submit otomatis agar
+     * field tanggal maintenance
+     * muncul / hilang.
+     */
+
+    const form =
+        document.getElementById(
+            'formFilter'
+        );
+
+
+    if (form) {
+
+        form.submit();
+
+    }
+
+}
+
+
+/* =========================================================
+   INISIALISASI
+========================================================= */
+
+document.addEventListener(
+    'DOMContentLoaded',
+    function() {
+
+        const selectedSubMesin =
+            <?= json_encode(
+                $id_sub_mesin > 0
+                    ? (string)$id_sub_mesin
+                    : ''
+            ) ?>;
+
+
+        const idMesin =
+            document.getElementById(
+                'id_mesin'
+            ).value;
+
+
+        /*
+         * Jika mesin sudah dipilih
+         * dari GET parameter,
+         * load ulang sub mesin.
+         */
+
+        if (idMesin !== '') {
+
+            loadSubMesin(
+                selectedSubMesin
+            );
+
+        }
+
+    }
+);
+
+</script>
+
+
+<?php
+
+/* =========================================================
+   CLOSE STATEMENT
+========================================================= */
+
+if ($stmt) {
+
+    mysqli_stmt_close(
+        $stmt
+    );
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+include "../template/footer.php";
+
 ?>
